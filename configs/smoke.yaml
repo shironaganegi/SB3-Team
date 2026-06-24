@@ -1,0 +1,26 @@
+# 配管確認用（学習→保存→評価が端から端まで通るかを数千ステップで確認するだけ）
+env_id: BipedalWalker-v3
+vel_coef: 0          # 0 なら SpeedReward を被せない（素のTQC）
+seed: 0
+total_timesteps: 4000   # 配管確認用にごく短く
+
+# --- TQC ハイパラ（araffin の BipedalWalker-v3 用既定。configで上書き可）---
+learning_starts: 1000   # smoke では短いので learning_starts も小さめに
+batch_size: 256
+buffer_size: 300000
+learning_rate: 7.3e-4
+use_sde: true
+train_freq: 8
+gradient_steps: 8
+gamma: 0.98
+tau: 0.02
+
+# --- コールバック・評価 ---
+eval_freq: 2000         # この間隔（step）ごとに素の環境で評価
+n_eval_episodes: 3
+checkpoint_freq: 2000   # 再開用チェックポイントの保存間隔
+
+# --- W&B（smoke は基本オフ）---
+use_wandb: false
+wandb_project: bipedal-timetrial
+wandb_entity: null      # null なら既定の entity を使う

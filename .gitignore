@@ -1,0 +1,10 @@
+# 学習成果物・ログ・一時ファイルは追跡しない
+models/
+checkpoints/
+runs/
+wandb/
+results/
+*.zip
+__pycache__/
+.venv/
+.claude/settings.local.json

@@ -1,0 +1,21 @@
+# W&B sweep 定義。あくまで探索用の代理指標(eval/mean_reward)で当たりを付けるためのもの。
+# 最終選抜は必ず src/evaluate.py（素の環境・完走率・ゴール到達ステップ数）で行うこと。
+program: src/train.py
+method: bayes
+
+metric:
+  name: eval/mean_reward   # EvalCallback が記録する代理指標。最終判断には使わない。
+  goal: maximize
+
+parameters:
+  vel_coef:
+    values: [2, 3, 4, 5]
+  seed:
+    values: [0, 1, 2]
+  learning_rate:
+    # 必要に応じて探索。固定したい場合は values: [7.3e-4] にする。
+    min: 0.0001
+    max: 0.001
+    distribution: log_uniform_values
+  use_wandb:
+    value: true            # sweep経由は常にW&Bを有効化

@@ -1,0 +1,8 @@
+# Python 3.12 / macOS arm64 で実際にインストールして動作確認したバージョンをピン留め。
+# Box2D はソースビルドが必要になった場合に SWIG が要る（README §3 参照）。
+stable-baselines3==2.9.0
+sb3-contrib==2.9.0
+gymnasium[box2d]==1.3.0
+wandb==0.28.0
+pyyaml==6.0.3
+tensorboard==2.20.0
