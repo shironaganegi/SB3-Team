@@ -1,10 +1,17 @@
-# classic speed: vel_coef=2 で軽く速度ボーナスを乗せ、タイム短縮と完走率維持を確認する。
+# =====================================================================
+# classic speed: vel_coef=2 で軽く速度ボーナスを乗せた設定。
+# baseline で完走方策が固まったあと、「タイムを縮めつつ完走率を保てるか」を試します。
+# 使い方: python src/train.py --config configs/classic_speed.yaml
+# baseline との違いは vel_coef だけ（下の1行）。他は同じ。
+# =====================================================================
+
+# --- ■ よく変える項目 ------------------------------------------------
 env_id: BipedalWalker-v3
-vel_coef: 2          # >0 のとき学習環境にだけ SpeedReward を被せる
+vel_coef: 2            # >0 なので学習環境にだけ SpeedReward が乗る。大きいほど速さ重視。
 seed: 0
 total_timesteps: 1000000
 
-# --- TQC ハイパラ（araffin の BipedalWalker-v3 用既定）---
+# --- TQC ハイパラ（baseline と同じ定番値）---------------------------
 learning_starts: 10000
 batch_size: 256
 buffer_size: 300000
@@ -15,12 +22,12 @@ gradient_steps: 8
 gamma: 0.98
 tau: 0.02
 
-# --- コールバック・評価 ---
+# --- 評価・保存の間隔（普段はいじらなくてよい）----------------------
 eval_freq: 10000
 n_eval_episodes: 10
 checkpoint_freq: 50000
 
-# --- W&B ---
+# --- W&B ------------------------------------------------------------
 use_wandb: false
 wandb_project: bipedal-timetrial
 wandb_entity: null

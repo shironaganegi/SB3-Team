@@ -1,4 +1,24 @@
-"""チーム共通の評価スクリプト。素の環境・deterministicで完走率とゴール到達ステップ数を出す。"""
+"""チーム共通の評価スクリプト。素の環境で完走率とゴール到達ステップ数を測る。
+
+このスクリプトがやること:
+  保存済みの TQC モデル(.zip)を読み込み、素の BipedalWalker-v3 で
+  複数シード × 複数エピソード回して、次の2つを出します。
+    1. 完走率（completion_rate）… 何割のエピソードでコースを完走できたか
+    2. ゴール到達ステップ数（goal_steps）… 完走したときの平均・中央値ステップ
+
+実行例:
+  python src/evaluate.py models/bipedalwalker_tqc_velcoef0_seed0_1000000_312.zip
+  python src/evaluate.py models/best_model.zip --seeds 0 1 2 3 4 --episodes 20
+
+【最終選抜はこのスクリプトだけで行います】
+  学習時の SpeedReward は絶対に被せません（素の環境で測る）。
+  W&B の eval/mean_reward はあくまで探索用の代理指標で、勝敗には使いません。
+  1本の好成績で判断せず、必ず複数シードで安定して出ることを確認してください。
+
+【どこを編集する？】
+  完走の判定基準を変えたいときは、下の2つのしきい値と is_success() を読みます。
+  普段の評価では --seeds と --episodes をコマンドラインで変えるだけで十分です。
+"""
 
 import argparse
 import json
@@ -10,25 +30,29 @@ from stable_baselines3.common.monitor import Monitor
 from sb3_contrib import TQC
 
 
-# --- 完走判定のしきい値（根拠はコメント参照）---
-# BipedalWalker は転倒（hullが地面に接触 or 画面外）すると報酬 -100 で terminated する。
-# したがって「最終ステップの報酬が -90 以下」なら転倒終了とみなせる
-# （通常の1ステップ報酬は概ね [-1, +1] 程度で、-90 はほぼ転倒ペナルティ -100 専用の領域）。
+# ======================================================================
+# 完走判定のしきい値（根拠は各コメント参照）
+# ======================================================================
+# BipedalWalker は転倒（hull が地面に接触 or 画面外）すると報酬 -100 で終了します。
+# 通常の1ステップ報酬は概ね [-1, +1] 程度なので、「最終ステップの報酬が -90 以下」
+# なら、それは転倒ペナルティ -100 によるものだと判断できます。
 FALL_PENALTY_MARGIN = -90.0
-# コースを完走（terrainの終端に到達）すると、転倒ペナルティ無しで terminated する。
-# 時間切れ（TimeLimit, 1600ステップ）は truncated になり、終端未到達なので完走ではない。
-# さらに念のため、累積報酬がこの値以上であることも条件に加える。
-# BipedalWalker-v3 は平均報酬300で「解けた」とされ、終端到達エピソードは概ね 250 以上になる。
-# 立ち止まりや微小移動で truncated したケースを弾く保険として 200 を採用。
+
+# コースを完走（地形の終端に到達）すると、転倒ペナルティなしで terminated します。
+# 一方、時間切れ（TimeLimit, 1600ステップ）は truncated で、終端未到達なので完走ではない。
+# さらに保険として、累積報酬がこの値以上であることも条件に加えます。
+# BipedalWalker-v3 は平均報酬300で「解けた」とされ、完走エピソードは概ね 250 以上。
+# その場で立ち止まって truncated したケースを弾くため、しきい値を 200 に設定。
 SUCCESS_REWARD_THRESHOLD = 200.0
 
 
 def is_success(total_reward, last_reward, terminated, truncated):
-    """1エピソードが完走（コース終端到達）かどうかを頑健に判定する。
+    """1エピソードが「完走（コース終端に到達）」かどうかを頑健に判定する。
 
-    条件: (1) 転倒で終わっていない（最終ステップ報酬が転倒ペナルティ相当でない）、
-    (2) 時間切れ(truncated)ではなく terminated で終わっている、
-    (3) 累積報酬が十分高い。
+    完走とみなす条件（3つすべてを満たす）:
+      (1) 転倒で終わっていない … 最終ステップの報酬が転倒ペナルティ相当でない
+      (2) 時間切れではなく terminated で終わっている … truncated でない
+      (3) 累積報酬が十分高い … 立ち止まり等の偽の終了を弾く保険
     """
     fell = last_reward <= FALL_PENALTY_MARGIN
     reached_goal = terminated and (not truncated)
@@ -36,18 +60,24 @@ def is_success(total_reward, last_reward, terminated, truncated):
 
 
 def run_episode(model, env):
-    """1エピソードを deterministic で回し、(完走か, ステップ数, 累積報酬) を返す。"""
+    """1エピソードを deterministic で最後まで回す。
+
+    返り値: (完走したか[bool], かかったステップ数[int], 累積報酬[float])
+    """
     obs, _ = env.reset()
     total_reward = 0.0
     last_reward = 0.0
     steps = 0
     terminated = truncated = False
+
+    # terminated（成功 or 転倒）か truncated（時間切れ）になるまで動かす
     while not (terminated or truncated):
         action, _ = model.predict(obs, deterministic=True)
         obs, reward, terminated, truncated, _ = env.step(action)
         total_reward += reward
-        last_reward = reward
+        last_reward = reward   # 最後のステップ報酬を覚えておく（転倒判定に使う）
         steps += 1
+
     success = is_success(total_reward, last_reward, terminated, truncated)
     return success, steps, total_reward
 
@@ -56,21 +86,24 @@ def evaluate(model, model_path, env_id, seeds, episodes_per_seed):
     """素の環境で seeds × episodes 回し、結果を集計して辞書で返す。"""
     n_total = 0
     n_success = 0
-    success_steps = []   # 完走したエピソードのステップ数
+    success_steps = []   # 完走したエピソードのステップ数だけを溜める
 
     for seed in seeds:
-        # 評価は素の環境（SpeedReward なし）。Monitorのみ被せる。
+        # 評価は必ず素の環境（SpeedReward なし）。Monitor だけ被せる。
         env = gym.make(env_id)
         env = Monitor(env)
         env.reset(seed=seed)
+
         for _ in range(episodes_per_seed):
             success, steps, _reward = run_episode(model, env)
             n_total += 1
             if success:
                 n_success += 1
                 success_steps.append(steps)
+
         env.close()
 
+    # 集計結果をまとめる（このまま JSON にも書き出す）
     result = {
         "model": os.path.basename(model_path),
         "env_id": env_id,
@@ -86,6 +119,7 @@ def evaluate(model, model_path, env_id, seeds, episodes_per_seed):
 
 
 def main():
+    # --- コマンドライン引数 ---
     parser = argparse.ArgumentParser(description="Evaluate a TQC model on raw BipedalWalker")
     parser.add_argument("model", help="評価するモデルの .zip パス")
     parser.add_argument("--env-id", default="BipedalWalker-v3")
@@ -94,7 +128,7 @@ def main():
         type=int,
         nargs="+",
         default=[0, 1, 2],
-        help="評価に使うシード（複数）。",
+        help="評価に使うシード（複数指定可）。例: --seeds 0 1 2 3 4",
     )
     parser.add_argument(
         "--episodes",
@@ -104,10 +138,11 @@ def main():
     )
     args = parser.parse_args()
 
+    # モデルを CPU で読み込んで評価
     model = TQC.load(args.model, device="cpu")
     result = evaluate(model, args.model, args.env_id, args.seeds, args.episodes)
 
-    # --- 標準出力（簡潔なテキスト）---
+    # --- 標準出力（ターミナルに簡潔に表示）---
     print(f"model            : {result['model']}")
     print(f"seeds            : {result['seeds']}  (episodes/seed={result['episodes_per_seed']})")
     print(f"completion_rate  : {result['completion_rate']:.3f}  ({result['n_success']}/{result['n_total']})")
@@ -117,7 +152,7 @@ def main():
     else:
         print("goal_steps       : 完走エピソードなし")
 
-    # --- JSON 出力 ---
+    # --- JSON 出力（results/<モデル名>.json に保存。後で比較しやすいように）---
     os.makedirs("results", exist_ok=True)
     out_name = os.path.splitext(os.path.basename(args.model))[0] + ".json"
     out_path = os.path.join("results", out_name)

@@ -1,21 +1,32 @@
-# W&B sweep 定義。あくまで探索用の代理指標(eval/mean_reward)で当たりを付けるためのもの。
-# 最終選抜は必ず src/evaluate.py（素の環境・完走率・ゴール到達ステップ数）で行うこと。
+# =====================================================================
+# W&B sweep 定義: ハイパラの「当たり」を自動探索するための設定。
+#
+# 使い方:
+#   1. 手元で一度だけ sweep を作る:  wandb sweep sweeps/classic_sweep.yaml
+#      → 出力に entity/project/sweep_id が表示されるので控える。
+#   2. Kaggle ノート（notebooks/kaggle_commit.ipynb）でその ID を使い agent を回す。
+#
+# 【重要】ここで使う metric（eval/mean_reward）はあくまで探索用の代理指標です。
+# 最終選抜は必ず src/evaluate.py（素の環境・完走率・ゴール到達ステップ数）で行います。
+# =====================================================================
+
 program: src/train.py
-method: bayes
+method: bayes              # ベイズ最適化で良さそうな値を優先的に探す
 
 metric:
   name: eval/mean_reward   # EvalCallback が記録する代理指標。最終判断には使わない。
   goal: maximize
 
+# --- 探索するパラメータ（ここを編集して探索範囲を変える）------------
 parameters:
   vel_coef:
-    values: [2, 3, 4, 5]
+    values: [2, 3, 4, 5]   # 速度ボーナス係数の候補
   seed:
-    values: [0, 1, 2]
+    values: [0, 1, 2]      # シードを振って安定性も見る
   learning_rate:
-    # 必要に応じて探索。固定したい場合は values: [7.3e-4] にする。
+    # 学習率を対数スケールで探索。固定したいときは values: [7.3e-4] に書き換える。
     min: 0.0001
     max: 0.001
     distribution: log_uniform_values
   use_wandb:
-    value: true            # sweep経由は常にW&Bを有効化
+    value: true            # sweep 経由は常に W&B を有効化（固定値）
