@@ -15,6 +15,7 @@
 # =====================================================================
 
 program: src/train.py
+project: bipedal-timetrial # configs の wandb_project と揃える（W&B 上の置き場所を統一）
 method: bayes              # ベイズ最適化で良さそうな値を優先的に探す
 
 metric:
