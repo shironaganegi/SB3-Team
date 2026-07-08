@@ -37,6 +37,8 @@ python src/evaluate.py models/<保存されたモデル>.zip
 
 配管が通ったら、`configs/classic_baseline.yaml`（`vel_coef=0` の素のTQC）で本格的に完走方策を学習します。学習が終わったら、同じく `src/evaluate.py` に最終モデルを渡して、完走率とゴール到達ステップ数を確認します。チェックポイントから再開したい場合は `python src/train.py --config <config> --resume checkpoints/<ckpt>.zip` を使います。
 
+**パラメータを変えて実験するときは、共有の config を直接書き換えず、自分の個人フォルダ `members/<自分の番号>/configs/` にコピーして編集してください**（コンフリクト防止のため。ルールの詳細は [members/README.md](members/README.md)）。共有の `configs/`・`sweeps/` を変えたいときは PR で提案します。学習の成果物（`models/`・`checkpoints/`・`results/`）は Git 管理外で、結果の共有は W&B で行います。例外として最終提出候補のモデルだけ `models/final/` にコミットできます。
+
 ## 5. Kaggleコミットでの sweep の回し方
 
 sweep は手元で一度だけ作成します。
