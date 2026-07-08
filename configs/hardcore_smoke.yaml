@@ -1,0 +1,43 @@
+# =====================================================================
+# hardcore smoke（Hardcore 配管確認用）: Hardcore 環境で学習→保存→評価が
+# 端から端まで通るかを数千ステップで確認するだけ。方策は学習されません。
+#
+# Hardcore とは: 平地メインの Basic と違い、穴・階段・障害物のあるコース。
+# 最終課題の採点は Basic / Hardcore の両モードで行われます（README §2.5）。
+#
+# 使い方:
+#   # ゼロから配管確認
+#   python src/train.py --config configs/hardcore_smoke.yaml
+#
+#   # Basic で学習済みのチェックポイントから Hardcore へ引き継げるかの確認
+#   python src/train.py --config configs/hardcore_smoke.yaml --resume checkpoints/<basicのzip>
+# =====================================================================
+
+# --- ■ よく変える項目 ------------------------------------------------
+env_id: BipedalWalkerHardcore-v3   # Hardcore 版。観測・行動は Basic と同一なので引き継ぎ可
+vel_coef: 0            # 0 = SpeedReward なし（素の TQC）
+seed: 0
+total_timesteps: 4000   # 配管確認用にごく短く
+
+# --- TQC ハイパラ（smoke 用に learning_starts を小さくしてある）-----
+#     別のハイパラを試したいときは、ここに1行足すだけで自動的に TQC へ
+#     渡ります（src/train.py の編集は不要）。
+learning_starts: 1000   # 総ステップが短いので、学習開始も早める
+batch_size: 256
+buffer_size: 300000
+learning_rate: 7.3e-4
+use_sde: true
+train_freq: 8
+gradient_steps: 8
+gamma: 0.98
+tau: 0.02
+
+# --- 評価・保存の間隔（smoke 用に短く）------------------------------
+eval_freq: 2000         # この間隔(step)ごとに素の環境で評価
+n_eval_episodes: 3
+checkpoint_freq: 2000   # 再開用チェックポイントの保存間隔
+
+# --- W&B（smoke は基本オフ）----------------------------------------
+use_wandb: false
+wandb_project: bipedal-timetrial
+wandb_entity: null
