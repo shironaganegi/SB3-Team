@@ -49,6 +49,8 @@ wandb sweep sweeps/classic_sweep.yaml
 
 この出力に `entity/project/sweep_id` が表示されるので控えておきます。あとは `notebooks/kaggle_commit.ipynb` を Kaggle にアップロードし、ノート冒頭の注意書き（CPUセッション・インターネット接続・APIキーはSecrets）に従って、セルを上から順に埋めます。具体的には、(1) リポジトリの clone（Public なのでトークン不要）、(2) `pip install -r requirements.txt`、(3) Secrets からの `WANDB_API_KEY` 読み込みと `wandb login`、(4) `wandb agent --count <N> <entity/project/sweep_id>` の `<...>` を実埋めし、「Save & Run All（Commit）」で放置実行します。CPUなので `--count` は控えめにしてください。
 
+**Kaggleを使わず自分のPCだけで手早く試したいとき**は、`wandb login` で一度ログインし、config で `use_wandb: true` にしてから `python src/train.py --config <config>` を普通に実行するだけでW&Bに結果が送られます。sweepも `wandb agent <entity/project/sweep_id>` を手元のターミナルで直接実行すれば参加できます（放置はできず、ターミナルを閉じると止まる点だけ注意）。詳しい手順は [docs/GUIDE.md §7-C](docs/GUIDE.md) を参照してください。
+
 ## 6. 共通評価プロトコル
 
 最終選抜は `src/evaluate.py` だけで行います。評価は必ず**素の環境**（学習時の `SpeedReward` を被せない）で、`deterministic=True`、**複数シード**で実施します。出すのは (1) 完走率と、(2) 完走したエピソードのゴール到達ステップ数（平均・中央値）です。完走の判定は頑健に作ってあり、転倒（報酬 -100 で終了）したエピソードは成功に数えません（判定ロジックとしきい値の根拠は `src/evaluate.py` のコメント参照）。1本の好成績で勝ちを決めず、必ず複数シードで安定して出ることを確認してください。
