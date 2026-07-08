@@ -1,5 +1,10 @@
 # =====================================================================
-# W&B sweep 定義: ハイパラの「当たり」を自動探索するための設定。
+# W&B sweep 定義（速度チューニング版）: vel_coef も含めてハイパラの「当たり」を
+# 自動探索するための設定。
+#
+# 【いつ使う?】baseline（完走方策）が固まった後の速度チューニング段階で。
+# いまの段階では vel_coef=0 固定の sweeps/baseline_sweep.yaml の方を使います
+# （README §7「まず baseline を固める」の方針。使い分けは README §4.5 表B）。
 #
 # 使い方:
 #   1. 手元で一度だけ sweep を作る:  wandb sweep sweeps/classic_sweep.yaml
@@ -11,6 +16,8 @@
 # =====================================================================
 
 program: src/train.py
+project: bipedal-timetrial # configs の wandb_project と揃える（未指定だと W&B の
+                           # 既定プロジェクトに run が散らばってしまうため必須）
 method: bayes              # ベイズ最適化で良さそうな値を優先的に探す
 
 metric:
