@@ -13,6 +13,8 @@ seed: 0
 total_timesteps: 4000   # 配管確認用にごく短く
 
 # --- TQC ハイパラ（smoke 用に learning_starts を小さくしてある）-----
+#     別のハイパラを試したいときは、ここに1行足すだけで自動的に TQC へ
+#     渡ります（src/train.py の編集は不要）。
 learning_starts: 1000   # 総ステップが短いので、学習開始も早める
 batch_size: 256
 buffer_size: 300000

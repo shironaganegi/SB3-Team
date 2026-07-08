@@ -17,12 +17,15 @@
   python src/train.py --config configs/classic_baseline.yaml --resume checkpoints/xxx.zip
 
 【どこを編集する？】
-  学習の設定（ステップ数・ハイパラ・速度ボーナス等）は configs/*.yaml 側で変えます。
-  このスクリプト自体を書き換える必要は普段ありません。新しい設定項目を増やしたい
-  ときだけ、ここの config.get(...) を読む処理を足してください。
+  学習の設定（ステップ数・ハイパラ・速度ボーナス等）は YAML 側で変えます
+  （共有 configs/ は直接書き換えず、members/<自分の番号>/configs/ にコピーして編集）。
+  このスクリプト自体を書き換える必要は普段ありません。TQC のハイパラ
+  （tau や gamma など）を新しく試したいときも、YAML に1行足すだけで
+  自動的に TQC へ渡ります（下の TQC_PARAM_NAMES を参照）。
 """
 
 import argparse
+import inspect
 import os
 
 import yaml
@@ -40,20 +43,46 @@ from sb3_contrib import TQC
 from wrappers import SpeedReward
 
 
-# YAML の項目のうち、ここに挙げたキーだけを TQC のコンストラクタへ渡します。
-# （これ以外の total_timesteps や eval_freq などは「学習の制御用」なので別扱い）
-# TQC のハイパラを増やしたいときは、このリストと configs の両方に項目を足します。
-TQC_HYPERPARAM_KEYS = [
-    "learning_starts",
-    "batch_size",
-    "buffer_size",
-    "learning_rate",
-    "use_sde",
-    "train_freq",
-    "gradient_steps",
-    "gamma",
-    "tau",
-]
+# YAML の項目は次の2種類に自動で振り分けられます。
+#
+#   1. TQC のハイパラ … TQC のコンストラクタ引数と同じ名前なら、そのまま TQC へ
+#      渡されます。名前の一覧は TQC の実物の定義から自動で取るので、新しいハイパラ
+#      （tau・gamma・batch_size など）を試したいときは YAML に1行足すだけでOK。
+#      このファイルの編集は不要です。
+#   2. 学習の制御用キー … total_timesteps や vel_coef など、このスクリプト自身が
+#      読む項目。下の CONTROL_KEYS に列挙してあります。
+#
+# どちらにも当てはまらないキーは打ち間違いの可能性が高いので、実行時に
+# [warn] で知らせます（エラーにはせず学習は続けます）。
+
+# TQC へは policy・env などを別途明示的に渡すので、YAML から受け取る対象から外す
+_EXPLICITLY_PASSED = {
+    "self", "policy", "env", "device", "verbose",
+    "seed", "tensorboard_log", "_init_setup_model",
+}
+TQC_PARAM_NAMES = set(inspect.signature(TQC.__init__).parameters) - _EXPLICITLY_PASSED
+
+# このスクリプト自身が読む「学習の制御用」キー
+CONTROL_KEYS = {
+    "env_id", "vel_coef", "time_penalty", "seed", "total_timesteps",
+    "eval_freq", "n_eval_episodes", "checkpoint_freq",
+    "use_wandb", "wandb_project", "wandb_entity",
+}
+
+
+def warn_unknown_keys(config):
+    """TQC にも学習制御にも当てはまらないキーを警告する（打ち間違い対策）。
+
+    W&B が内部で足すメタ情報（アンダースコア始まり）は対象外。
+    """
+    for key in config:
+        if key.startswith("_"):
+            continue
+        if key not in TQC_PARAM_NAMES and key not in CONTROL_KEYS:
+            print(
+                f"[warn] 設定キー '{key}' は TQC のハイパラにも学習制御用キーにも"
+                f"見当たりません。打ち間違いではないですか？（無視して続行します）"
+            )
 
 
 def make_env(env_id, vel_coef, seed, training, time_penalty=0.0):
@@ -131,11 +160,17 @@ def main():
     # ----------------------------------------------------------------------
     # 3. 設定値の取り出し
     # ----------------------------------------------------------------------
+    warn_unknown_keys(config)  # 打ち間違いキーがあればここで知らせる
+
     env_id = config.get("env_id", "BipedalWalker-v3")
     vel_coef = float(config.get("vel_coef", 0))
     time_penalty = float(config.get("time_penalty", 0))
     seed = int(config.get("seed", 0))
     total_timesteps = int(config.get("total_timesteps", 4000))
+
+    # time_penalty を使った学習は、成果物のファイル名でも区別できるようにする
+    # （README §9 の命名規則。0 のときは従来どおりタグなし）
+    tp_tag = f"_timepen{time_penalty:g}" if time_penalty > 0 else ""
 
     set_random_seed(seed)  # 再現性のため乱数シードを固定
 
@@ -157,8 +192,8 @@ def main():
     # ----------------------------------------------------------------------
     # 6. モデルを作る or 再開する
     # ----------------------------------------------------------------------
-    # YAML から TQC へ渡すハイパラだけを抜き出す
-    tqc_kwargs = {k: config[k] for k in TQC_HYPERPARAM_KEYS if k in config}
+    # YAML から TQC へ渡すハイパラだけを抜き出す（名前が一致するものは全部渡る）
+    tqc_kwargs = {k: config[k] for k in config if k in TQC_PARAM_NAMES}
 
     if args.resume:
         print(f"[resume] {args.resume} から学習を再開します")
@@ -203,7 +238,7 @@ def main():
     checkpoint_callback = CheckpointCallback(
         save_freq=int(config.get("checkpoint_freq", 50000)),
         save_path="checkpoints",
-        name_prefix=f"tqc_velcoef{int(vel_coef)}_seed{seed}",
+        name_prefix=f"tqc_velcoef{int(vel_coef)}{tp_tag}_seed{seed}",
     )
     callbacks.append(checkpoint_callback)
 
@@ -243,9 +278,10 @@ def main():
 
     steps = model.num_timesteps
     # 例: bipedalwalker_tqc_velcoef0_seed0_1000000_312.zip
-    #     velcoef=速度ボーナス係数 / seed=シード / steps=総ステップ / 末尾=評価報酬
+    #     velcoef=速度ボーナス係数 / (timepen=時間ペナルティ、使ったときだけ) /
+    #     seed=シード / steps=総ステップ / 末尾=評価報酬
     name = (
-        f"bipedalwalker_tqc_velcoef{int(vel_coef)}_seed{seed}"
+        f"bipedalwalker_tqc_velcoef{int(vel_coef)}{tp_tag}_seed{seed}"
         f"_{steps}_{int(round(eval_reward))}"
     )
     save_path = os.path.join("models", name)
