@@ -172,6 +172,10 @@ def main():
     # （README §9 の命名規則。0 のときは従来どおりタグなし）
     tp_tag = f"_timepen{time_penalty:g}" if time_penalty > 0 else ""
 
+    # Hardcore で学習したモデルは、ファイル名だけで Basic と区別できるようにする
+    # （README §9。Basic のときはタグなしで従来名と完全一致）
+    env_tag = "hardcore_" if "Hardcore" in env_id else ""
+
     set_random_seed(seed)  # 再現性のため乱数シードを固定
 
     # ----------------------------------------------------------------------
@@ -245,7 +249,7 @@ def main():
     checkpoint_callback = CheckpointCallback(
         save_freq=int(config.get("checkpoint_freq", 50000)),
         save_path="checkpoints",
-        name_prefix=f"tqc_velcoef{int(vel_coef)}{tp_tag}_seed{seed}",
+        name_prefix=f"tqc_{env_tag}velcoef{int(vel_coef)}{tp_tag}_seed{seed}",
     )
     callbacks.append(checkpoint_callback)
 
@@ -285,10 +289,12 @@ def main():
 
     steps = model.num_timesteps
     # 例: bipedalwalker_tqc_velcoef0_seed0_1000000_312.zip
-    #     velcoef=速度ボーナス係数 / (timepen=時間ペナルティ、使ったときだけ) /
-    #     seed=シード / steps=総ステップ / 末尾=評価報酬
+    #     bipedalwalker_hardcore_tqc_velcoef0_seed0_1000000_120.zip
+    #     (hardcore=Hardcore環境で学習したときだけ) / velcoef=速度ボーナス係数 /
+    #     (timepen=時間ペナルティ、使ったときだけ) / seed=シード /
+    #     steps=総ステップ / 末尾=評価報酬
     name = (
-        f"bipedalwalker_tqc_velcoef{int(vel_coef)}{tp_tag}_seed{seed}"
+        f"bipedalwalker_{env_tag}tqc_velcoef{int(vel_coef)}{tp_tag}_seed{seed}"
         f"_{steps}_{int(round(eval_reward))}"
     )
     save_path = os.path.join("models", name)

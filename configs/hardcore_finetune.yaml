@@ -1,0 +1,47 @@
+# =====================================================================
+# hardcore finetune: Basic で学習したモデルを Hardcore へ追加学習（カリキュラム学習）。
+#
+# なぜこの設定があるか:
+#   最終課題の採点は Basic / Hardcore の両モードで行われます（README §2.5）。
+#   Hardcore（穴・階段・障害物あり）をゼロから学習するのは CPU の予算では
+#   ほぼ無理ですが、観測(24次元)・行動(4次元)は Basic と同一なので、
+#   「歩ける」Basic モデルに障害物対応だけ追加学習させるのが定石です。
+#
+# 使い方（必ず --resume で Basic のチェックポイントを渡す）:
+#   python src/train.py --config configs/hardcore_finetune.yaml \
+#       --resume checkpoints/<Basicで学習したzip>
+#
+# 注意:
+#   --resume 時、下の TQC ハイパラはチェックポイント保存時点の値が使われ、
+#   この YAML の値は反映されません（train.py が起動時に警告を出します）。
+#   反映されるのは env_id・total_timesteps などの学習制御用キーだけです。
+# =====================================================================
+
+# --- ■ よく変える項目 ------------------------------------------------
+env_id: BipedalWalkerHardcore-v3   # Hardcore 版。ここが Basic 用 config との本質的な違い
+vel_coef: 0            # まず素の報酬で障害物対応を学ぶ。タイム短縮はその後
+seed: 0               # 乱数シード。人ごとに変えて分担すると探索が広がる
+total_timesteps: 1000000   # 追加学習ぶんのステップ数。CPU だと長いので様子を見て調整
+
+# --- TQC ハイパラ（--resume 時は使われない。新規学習で使う場合の既定値）---
+#     別のハイパラ（例: ent_coef）を試したいときは、ここに1行足すだけで
+#     自動的に TQC へ渡ります（src/train.py の編集は不要）。
+learning_starts: 10000   # この数ステップは経験を貯めるだけで学習しない
+batch_size: 256
+buffer_size: 300000      # 経験再生バッファの大きさ（メモリ使用に影響）
+learning_rate: 7.3e-4
+use_sde: true            # 状態依存の探索（BipedalWalker では有効）
+train_freq: 8
+gradient_steps: 8
+gamma: 0.98              # 割引率
+tau: 0.02                # ターゲットネットの更新係数
+
+# --- 評価・保存の間隔（普段はいじらなくてよい）----------------------
+eval_freq: 10000         # この間隔(step)ごとに素の環境で評価しベスト保存
+n_eval_episodes: 10      # 1回の評価で回すエピソード数
+checkpoint_freq: 50000   # 再開用チェックポイントの保存間隔(step)
+
+# --- W&B（ローカル単体ならオフでよい）-------------------------------
+use_wandb: false
+wandb_project: bipedal-timetrial
+wandb_entity: null       # null なら自分の既定 entity を使う

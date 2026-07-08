@@ -2,13 +2,22 @@
 
 このスクリプトがやること:
   保存済みの TQC モデル(.zip)を読み込み、素の BipedalWalker-v3 で
-  複数シード × 複数エピソード回して、次の2つを出します。
+  複数シード × 複数エピソード回して、次の3つを出します。
     1. 完走率（completion_rate）… 何割のエピソードでコースを完走できたか
     2. ゴール到達ステップ数（goal_steps）… 完走したときの平均・中央値ステップ
+    3. 平均報酬（reward_mean）… 全エピソードの累積報酬の平均
 
 実行例:
   python src/evaluate.py models/bipedalwalker_tqc_velcoef0_seed0_1000000_312.zip
   python src/evaluate.py models/best_model.zip --seeds 0 1 2 3 4 --episodes 20
+
+【最終課題の採点を手元で再現する】
+  採点は Basic / Hardcore 両モードで「ランダムコース5回の平均」。
+  ゴールできれば平均ステップ数（→ goal_steps_mean）、できなければ
+  平均Reward（→ reward_mean）で順位づけされます（README §2.5）。
+  シードを5つ変えれば「コースが毎回ランダム」を再現できます:
+    python src/evaluate.py models/<候補>.zip --seeds 0 1 2 3 4 --episodes 1
+    python src/evaluate.py models/<候補>.zip --env-id BipedalWalkerHardcore-v3 --seeds 0 1 2 3 4 --episodes 1
 
 【最終選抜はこのスクリプトだけで行います】
   学習時の SpeedReward は絶対に被せません（素の環境で測る）。
@@ -87,6 +96,7 @@ def evaluate(model, model_path, env_id, seeds, episodes_per_seed):
     n_total = 0
     n_success = 0
     success_steps = []   # 完走したエピソードのステップ数だけを溜める
+    all_rewards = []     # 全エピソードの累積報酬（完走できないモデルの比較用）
 
     for seed in seeds:
         # 評価は必ず素の環境（SpeedReward なし）。Monitor だけ被せる。
@@ -95,8 +105,9 @@ def evaluate(model, model_path, env_id, seeds, episodes_per_seed):
         env.reset(seed=seed)
 
         for _ in range(episodes_per_seed):
-            success, steps, _reward = run_episode(model, env)
+            success, steps, reward = run_episode(model, env)
             n_total += 1
+            all_rewards.append(reward)
             if success:
                 n_success += 1
                 success_steps.append(steps)
@@ -114,6 +125,10 @@ def evaluate(model, model_path, env_id, seeds, episodes_per_seed):
         "completion_rate": n_success / n_total if n_total else 0.0,
         "goal_steps_mean": statistics.mean(success_steps) if success_steps else None,
         "goal_steps_median": statistics.median(success_steps) if success_steps else None,
+        # 課題の第2指標: ゴールできないモデルは「平均Reward」で順位づけされる。
+        # 完走ゼロのモデル同士でも、この値で改善しているかを比較できる。
+        # 環境が返す報酬は numpy の float32 なので、JSON に書けるよう float に直す。
+        "reward_mean": float(statistics.mean(all_rewards)) if all_rewards else None,
     }
     return result
 
@@ -151,6 +166,8 @@ def main():
         print(f"goal_steps_median: {result['goal_steps_median']}")
     else:
         print("goal_steps       : 完走エピソードなし")
+    if result["reward_mean"] is not None:
+        print(f"reward_mean      : {result['reward_mean']:.1f}")
 
     # --- JSON 出力（results/<モデル名>.json に保存。後で比較しやすいように）---
     os.makedirs("results", exist_ok=True)
