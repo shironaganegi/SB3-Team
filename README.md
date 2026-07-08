@@ -35,7 +35,7 @@ python src/train.py --config configs/smoke.yaml
 python src/evaluate.py models/<保存されたモデル>.zip
 ```
 
-配管が通ったら、`configs/classic_baseline.yaml`（`vel_coef=0` の素のTQC）で本格的に完走方策を学習します。学習が終わったら、同じく `src/evaluate.py` に最終モデルを渡して、完走率とゴール到達ステップ数を確認します。チェックポイントから再開したい場合は `python src/train.py --config <config> --resume checkpoints/<ckpt>.zip` を使います。
+配管が通ったら、`configs/classic_baseline.yaml`（`vel_coef=0` の素のTQC）で本格的に完走方策を学習します。学習が終わったら、同じく `src/evaluate.py` に最終モデルを渡して、完走率とゴール到達ステップ数を確認します。チェックポイントから再開したい場合は `python src/train.py --config <config> --resume checkpoints/<ckpt>.zip` を使います。ただし**再開時のハイパラはチェックポイント保存時点の値が引き継がれ、YAML でハイパラを変えても反映されません**（変えて試したいときは新規学習で）。実行時にもその旨の注意が表示されます。
 
 **パラメータを変えて実験するときは、共有の config を直接書き換えず、自分の個人フォルダ `members/<自分の番号>/configs/` にコピーして編集してください**（コンフリクト防止のため。ルールの詳細は [members/README.md](members/README.md)）。共有の `configs/`・`sweeps/` を変えたいときは PR で提案します。学習の成果物（`models/`・`checkpoints/`・`results/`）は Git 管理外で、結果の共有は W&B で行います。例外として最終提出候補のモデルだけ `models/final/` にコミットできます。
 
@@ -49,7 +49,7 @@ python src/evaluate.py models/<保存されたモデル>.zip
 |---|---|---|
 | 用意された設定でそのまま学習を回す | **編集不要** | 下の表Bから config を選んで `python src/train.py --config <それ>` |
 | ハイパラ（`learning_rate`・`seed` など）を変えて試す | `members/<自分の番号>/configs/` にコピーした YAML | 共有の `configs/` は直接書き換えない（§4） |
-| 新しいハイパラ項目（例: `tau`）を試す | 自分の YAML に **1行足すだけ** | `src/train.py` の編集は不要。TQC が受け取れる名前なら自動で渡る |
+| 新しいハイパラ項目（例: `ent_coef`）を試す | 自分の YAML に **1行足すだけ** | `src/train.py` の編集は不要。TQC が受け取れる名前なら自動で渡る |
 | sweep の探索範囲（候補値・レンジ）を変える | `members/<自分の番号>/sweeps/` にコピーした YAML の `parameters:` | 共有の `sweeps/` を変えたいときは PR で提案 |
 | Kaggle で回す本数・参加する sweep を変える | `notebooks/kaggle_commit.ipynb` 最終セルの変数 `SWEEP_ID` と `N_RUNS` | 書き換えるのはこの2行だけ（§5） |
 | 報酬整形（速度ボーナス以外の工夫）を足す | [src/wrappers.py](src/wrappers.py) | 共有資産なので PR で提案。**学習にしか使わない**こと（評価は素の環境） |

@@ -197,6 +197,13 @@ def main():
 
     if args.resume:
         print(f"[resume] {args.resume} から学習を再開します")
+        # 再開時のハイパラはチェックポイント保存時点の値が使われる。
+        # YAML でハイパラを変えても反映されない（変えたいときは新規学習で）。
+        if tqc_kwargs:
+            print(
+                f"[resume] 注意: YAML のハイパラ {sorted(tqc_kwargs)} は再開時には"
+                f"反映されません（チェックポイント保存時の値をそのまま使います）"
+            )
         model = TQC.load(
             args.resume,
             env=train_env,
