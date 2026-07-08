@@ -1,0 +1,37 @@
+# =====================================================================
+# W&B sweep 定義（baseline 専念版）: vel_coef=0 の素の TQC で「完走できる方策」を
+# まず固めるための探索。速度ボーナスは載せず、seed と learning_rate だけ振る。
+#
+# 速度チューニング（vel_coef を振る）は sweeps/classic_sweep.yaml の方を使う。
+# README §7「まず baseline を固め、速度のやり込みは後回し」の方針に対応。
+#
+# 使い方:
+#   1. 手元で一度だけ sweep を作る:  wandb sweep sweeps/baseline_sweep.yaml
+#      → 出力に entity/project/sweep_id が表示されるので控える。
+#   2. Kaggle ノート（notebooks/kaggle_commit.ipynb）でその ID を使い agent を回す。
+#
+# 【重要】ここで使う metric（eval/mean_reward）はあくまで探索用の代理指標です。
+# 最終選抜は必ず src/evaluate.py（素の環境・完走率・ゴール到達ステップ数）で行います。
+# =====================================================================
+
+program: src/train.py
+project: bipedal-timetrial # configs の wandb_project と揃える（W&B 上の置き場所を統一）
+method: bayes              # ベイズ最適化で良さそうな値を優先的に探す
+
+metric:
+  name: eval/mean_reward   # EvalCallback が記録する代理指標。最終判断には使わない。
+  goal: maximize
+
+# --- 探索するパラメータ -------------------------------------------------
+parameters:
+  vel_coef:
+    values: [0]            # baseline 専念（速度ボーナスなし＝素の環境と同じ報酬で学習）
+  seed:
+    values: [0, 1, 2]      # シードを振って安定性も見る
+  learning_rate:
+    # 学習率を対数スケールで探索。固定したいときは values: [7.3e-4] に書き換える。
+    min: 0.0001
+    max: 0.001
+    distribution: log_uniform_values
+  use_wandb:
+    value: true            # sweep 経由は常に W&B を有効化（固定値）

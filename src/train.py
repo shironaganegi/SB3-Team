@@ -56,20 +56,20 @@ TQC_HYPERPARAM_KEYS = [
 ]
 
 
-def make_env(env_id, vel_coef, seed, training):
+def make_env(env_id, vel_coef, seed, training, time_penalty=0.0):
     """1つの環境を作って返す。
 
     ラップの順番:
-      gym.make → Monitor（必ず）→ （学習用かつ vel_coef>0 のときだけ）SpeedReward
+      gym.make → Monitor（必ず）→ （学習用かつ vel_coef>0 or time_penalty>0 のときだけ）SpeedReward
 
     training の意味:
-      True  … 学習用の環境。vel_coef>0 なら SpeedReward で速度ボーナスを足す。
+      True  … 学習用の環境。vel_coef>0 or time_penalty>0 なら SpeedReward を被せる。
       False … 評価用の環境。常に素の環境（SpeedReward を被せない）。
     """
     env = gym.make(env_id)
     env = Monitor(env)  # エピソード報酬・長さを記録する標準ラッパー
-    if training and vel_coef > 0:
-        env = SpeedReward(env, vel_coef=vel_coef)
+    if training and (vel_coef > 0 or time_penalty > 0):
+        env = SpeedReward(env, vel_coef=vel_coef, time_penalty=time_penalty)
     env.reset(seed=seed)
     return env
 
@@ -133,6 +133,7 @@ def main():
     # ----------------------------------------------------------------------
     env_id = config.get("env_id", "BipedalWalker-v3")
     vel_coef = float(config.get("vel_coef", 0))
+    time_penalty = float(config.get("time_penalty", 0))
     seed = int(config.get("seed", 0))
     total_timesteps = int(config.get("total_timesteps", 4000))
 
@@ -141,9 +142,9 @@ def main():
     # ----------------------------------------------------------------------
     # 4. 環境を用意
     # ----------------------------------------------------------------------
-    # 学習用: vel_coef>0 なら SpeedReward あり。
+    # 学習用: vel_coef>0 or time_penalty>0 なら SpeedReward あり。
     # 評価用: 常に素の環境。学習用とシードをずらして（+10000）汎化を見る。
-    train_env = make_env(env_id, vel_coef, seed, training=True)
+    train_env = make_env(env_id, vel_coef, seed, training=True, time_penalty=time_penalty)
     eval_env = make_env(env_id, 0.0, seed + 10000, training=False)
 
     # ----------------------------------------------------------------------
