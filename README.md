@@ -8,7 +8,7 @@
 
 ## 2. 使うWebサービスと登録手順
 
-**GitHub。** このリポジトリで全員が作業します。リポジトリ管理者は Settings → Collaborators から、チーム5人を Collaborator として招待してください。課題提出までの間はリポジトリを Private にしておきます。
+**GitHub。** このリポジトリで全員が作業します。リポジトリは Public です。
 
 **Kaggle。** 無料登録後、初回に電話番号認証が必須です。注意したいのは、GPUだけでなく**インターネット接続**（`git clone`・`pip install`・wandb 同期に必要）も、電話番号認証を済ませないと有効化できない点です。設定パネルの「Get phone verified」で認証したうえで、ノートブックの Settings → Internet を connected にしてください。今回はGPUではなく**CPUセッション**で回します。Kaggle コミット（Save & Run All）の手順は §5 を参照してください。
 
@@ -45,7 +45,7 @@ sweep は手元で一度だけ作成します。
 wandb sweep sweeps/classic_sweep.yaml
 ```
 
-この出力に `entity/project/sweep_id` が表示されるので控えておきます。あとは `notebooks/kaggle_commit.ipynb` を Kaggle にアップロードし、ノート冒頭の注意書き（CPUセッション・インターネット接続・APIキーはSecrets）に従って、セルを上から順に埋めます。具体的には、(1) リポジトリの clone URL、(2) `pip install -r requirements.txt`、(3) Secrets からの `WANDB_API_KEY` 読み込みと `wandb login`、(4) `wandb agent --count <N> <entity/project/sweep_id>` の `<...>` を実埋めし、「Save & Run All（Commit）」で放置実行します。CPUなので `--count` は控えめにしてください。
+この出力に `entity/project/sweep_id` が表示されるので控えておきます。あとは `notebooks/kaggle_commit.ipynb` を Kaggle にアップロードし、ノート冒頭の注意書き（CPUセッション・インターネット接続・APIキーはSecrets）に従って、セルを上から順に埋めます。具体的には、(1) リポジトリの clone（Public なのでトークン不要）、(2) `pip install -r requirements.txt`、(3) Secrets からの `WANDB_API_KEY` 読み込みと `wandb login`、(4) `wandb agent --count <N> <entity/project/sweep_id>` の `<...>` を実埋めし、「Save & Run All（Commit）」で放置実行します。CPUなので `--count` は控えめにしてください。
 
 ## 6. 共通評価プロトコル
 
