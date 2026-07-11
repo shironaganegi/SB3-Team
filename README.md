@@ -6,7 +6,7 @@
 
 | 項目 | 現在 |
 |---|---|
-| **いまの段階** | [§7](#7-進め方提出までの5ステップ) の **Step 2（sweep 参加）進行中**。sweep の完走 run 5本はいずれも eval 報酬 300 超まで到達（Step 1 の「配管が一周回る」は達成済み） |
+| **いまの段階** | [§7](#7-進め方提出までの5ステップ) の **Step 2（sweep 参加）進行中**。sweep の完走 run 5本はいずれも eval 報酬 300 超まで到達（Step 1 の「配管が一周回る」は達成済み）。ベスト設定の選定結果は [docs/BEST_CONFIG.md](docs/BEST_CONFIG.md) |
 | **公式 sweep ID** | `sai3desuyo-/bipedal-timetrial/ksgu0vds`（[W&B ダッシュボードで進捗を見る](https://wandb.ai/sai3desuyo-/bipedal-timetrial/sweeps/ksgu0vds)） |
 | **各自やること** | Kaggle で公式 sweep に参加する（[§5](#5-kaggleコミットでの-sweep-の回し方)、`N_RUNS` は 1）＋ 手元で `classic_baseline.yaml` を自分の seed で回す（[§7](#7-進め方提出までの5ステップ) Step 1） |
 
@@ -133,7 +133,7 @@ python src/evaluate.py models/<候補>.zip --env-id BipedalWalkerHardcore-v3 --s
 
 **Step 1: Basic のベースラインを作る。** `configs/classic_baseline.yaml` で、複数人がそれぞれ別の `seed`（0〜4）を担当して回します。乱数の当たり外れが大きいため、複数シードで回すこと自体が探索になります（レポートの根拠にも使えます）。完了の目安は `evaluate.py` で完走が出始めること。BipedalWalker-v3 は TQC なら 100万ステップ前後で「解けた」（平均報酬300）に届くのが相場です。
 
-**Step 2: ハイパラ探索（Step 1 と並行）。** `sweeps/baseline_sweep.yaml` の sweep に Kaggle から全員で参加します（[§5](#5-kaggleコミットでの-sweep-の回し方)）。当たり値が見つかったら classic_baseline に反映して Step 1 を上回るのが目標です。
+**Step 2: ハイパラ探索（Step 1 と並行）。** `sweeps/baseline_sweep.yaml` の sweep に Kaggle から全員で参加します（[§5](#5-kaggleコミットでの-sweep-の回し方)）。当たり値が見つかったら classic_baseline に反映して Step 1 を上回るのが目標です。公式 sweep の結果とベスト設定の選定理由は [docs/BEST_CONFIG.md](docs/BEST_CONFIG.md) にまとめてあります（レポートに転記できる形式）。
 
 **Step 3: タイム短縮。** `configs/classic_speed.yaml`（`vel_coef=2`）や `classic_fast.yaml` で報酬整形を乗せます。`vel_coef` を上げるほど平均ステップ数は減る方向に行きますが、上げすぎると転倒が増えて完走率が落ちるトレードオフがあります。baseline との比較は、そのままレポートの「結果」の章のグラフになります。
 
