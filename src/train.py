@@ -302,6 +302,32 @@ def main():
     print(f"[saved] {save_path}.zip  (eval_reward={eval_reward:.1f})")
 
     # ----------------------------------------------------------------------
+    # 9.5 ベストモデルの走りを動画にして W&B へ自動アップロード
+    # ----------------------------------------------------------------------
+    # 【なぜ】完走率やステップ数の数字だけでは「どんな歩き方か」「どこで転ぶか」
+    #         が分からない。全員の学習 run に動画が自動で付けば、W&B の
+    #         ダッシュボードを見るだけで互いの方策の質を比較できる。
+    # 【何を撮る】評価ベストの models/best_model.zip（無ければ最終モデル）を、
+    #             学習と同じ env_id の素の環境で1エピソード。
+    # 【失敗しても】モデルは保存済みなので、動画の失敗は警告だけ出して無視する。
+    if run is not None:
+        try:
+            from record_video import record_episode
+
+            best_path = os.path.join("models", "best_model.zip")
+            film_path = best_path if os.path.exists(best_path) else save_path + ".zip"
+            video_path = os.path.join("results", "videos", f"{name}.mp4")
+            film_model = TQC.load(film_path, device="cpu")
+            success, v_steps, v_reward = record_episode(film_model, env_id, seed, video_path)
+            wandb.log({"demo": wandb.Video(video_path, format="mp4")})
+            print(
+                f"[video] {'完走' if success else '未完走'} steps={v_steps} "
+                f"reward={v_reward:.1f} → W&B の run に動画をアップロードしました"
+            )
+        except Exception as e:  # 動画は学習の成否と無関係なので、ここでは落とさない
+            print(f"[video] 動画の作成/アップロードに失敗しました（学習結果には影響なし）: {e}")
+
+    # ----------------------------------------------------------------------
     # 10. 後片付け
     # ----------------------------------------------------------------------
     train_env.close()
