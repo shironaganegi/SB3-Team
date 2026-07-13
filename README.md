@@ -2,13 +2,13 @@
 
 > **GitHub / Kaggle / W&B の使い方が初めての人は、まず [docs/GUIDE.md（チーム作業ガイド）](docs/GUIDE.md) を読んでください。** 環境構築からブランチ作業・Pull Request の出し方まで初心者向けに手順をまとめています。この README は技術仕様が中心です。
 
-## 📍 いまのフェーズ（2026-07-11 更新）
+## 📍 いまのフェーズ（2026-07-13 更新）
 
 | 項目 | 現在 |
 |---|---|
-| **いまの段階** | [§7](#7-進め方提出までの5ステップ) の **Step 2（sweep 参加）進行中**。sweep の完走 run 5本はいずれも eval 報酬 300 超まで到達（Step 1 の「配管が一周回る」は達成済み）。ベスト設定の選定結果は [docs/BEST_CONFIG.md](docs/BEST_CONFIG.md) |
-| **公式 sweep ID** | `sai3desuyo-/bipedal-timetrial/ksgu0vds`（[W&B ダッシュボードで進捗を見る](https://wandb.ai/sai3desuyo-/bipedal-timetrial/sweeps/ksgu0vds)） |
-| **各自やること** | Kaggle で公式 sweep に参加する（[§5](#5-kaggleコミットでの-sweep-の回し方)、`N_RUNS` は 1）＋ 手元で `classic_baseline.yaml` を自分の seed で回す（[§7](#7-進め方提出までの5ステップ) Step 1） |
+| **いまの段階** | [§7](#7-進め方提出までの5ステップ) の **Step 4a（Hardcore 追加学習）進行中**。1回目（W&B run `chocolate-yogurt-12`）が完了: Hardcore eval 報酬 -71→160、採点再現は完走 0/5・reward 61.2（あと一歩）。同モデルは Classic では完走 5/5（576→744.6 ステップと遅くなる副作用あり）。Step 2 のベスト設定選定は [docs/BEST_CONFIG.md](docs/BEST_CONFIG.md) で完了済み |
+| **提出候補モデル** | 提出は **班で1つの zip を両モード採点**（[§2.5](#25-最終課題の採点ルール要点)）なので、Classic 用と Hardcore 用を別々に作るのではなく1つの系譜を育てる。現候補は `chocolate-yogurt-12`（run `an3wpjb5`、Classic 5/5 ＋ Hardcore 報酬 61.2） |
+| **各自やること** | ① Hardcore 続行: [notebooks/kaggle_hardcore_finetune.ipynb](notebooks/kaggle_hardcore_finetune.ipynb) を Save & Run All（既定値が続行用に設定済み・編集不要）。② vel_coef の効果測定（Step 3 兼レポート素材）: [notebooks/kaggle_train_config.ipynb](notebooks/kaggle_train_config.ipynb) を Save & Run All |
 
 Step が進んだら（例: Basic で完走が出て Step 3 に移る）、気づいた人がこの表と更新日を PR で書き換えてください。
 

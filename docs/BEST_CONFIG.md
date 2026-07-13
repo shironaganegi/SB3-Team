@@ -65,7 +65,7 @@ sweep 上位のうち、**完走モデルの zip が W&B に残っている fini
 
 **このモデルの位置づけ:**
 
-- Hardcore 追加学習（README §7 Step 4a、[notebooks/kaggle_hardcore_finetune.ipynb](../notebooks/kaggle_hardcore_finetune.ipynb)）の起点。
+- Hardcore 追加学習（README §7 Step 4a、[notebooks/kaggle_hardcore_finetune.ipynb](../notebooks/kaggle_hardcore_finetune.ipynb)）の起点。1回目（run `an3wpjb5` / chocolate-yogurt-12、+100万ステップ）の結果は Hardcore eval 報酬 -71→160・採点再現 完走0/5・reward_mean 61.2、Classic 採点は完走 5/5・goal_steps_mean 744.6（2026-07-13 時点）。続行はノートの `RESUME_RUN_PATH` 既定値（この run）から。
 - Classic 速度チューニング（Step 3）のベース設定。学習率は当たり値 4.43e-4 を引き継ぎ、`vel_coef` を振る。
 - 完走率 80% はまだ改善余地がある（5回中1回転倒）。速度チューニングと並行して、失敗コースの観察（動画）から原因を特定する。
 
