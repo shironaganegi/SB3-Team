@@ -2,13 +2,13 @@
 
 > **GitHub / Kaggle / W&B の使い方が初めての人は、まず [docs/GUIDE.md（チーム作業ガイド）](docs/GUIDE.md) を読んでください。** 環境構築からブランチ作業・Pull Request の出し方まで初心者向けに手順をまとめています。この README は技術仕様が中心です。
 
-## 📍 いまのフェーズ（2026-07-13 更新）
+## 📍 いまのフェーズ（2026-07-14 更新）
 
 | 項目 | 現在 |
 |---|---|
-| **いまの段階** | [§7](#7-進め方提出までの5ステップ) の **Step 4a（Hardcore 追加学習）進行中**。1回目（W&B run `chocolate-yogurt-12`）が完了: Hardcore eval 報酬 -71→160、採点再現は完走 0/5・reward 61.2（あと一歩）。同モデルは Classic では完走 5/5（576→744.6 ステップと遅くなる副作用あり）。Step 2 のベスト設定選定は [docs/BEST_CONFIG.md](docs/BEST_CONFIG.md) で完了済み |
-| **提出候補モデル** | 提出は **班で1つの zip を両モード採点**（[§2.5](#25-最終課題の採点ルール要点)）なので、Classic 用と Hardcore 用を別々に作るのではなく1つの系譜を育てる。現候補は `chocolate-yogurt-12`（run `an3wpjb5`、Classic 5/5 ＋ Hardcore 報酬 61.2） |
-| **各自やること** | ① Hardcore 続行: [notebooks/kaggle_hardcore_finetune.ipynb](notebooks/kaggle_hardcore_finetune.ipynb) を Save & Run All（既定値が続行用に設定済み・編集不要）。② vel_coef の効果測定（Step 3 兼レポート素材）: [notebooks/kaggle_train_config.ipynb](notebooks/kaggle_train_config.ipynb) を Save & Run All |
+| **いまの段階** | [§7](#7-進め方提出までの5ステップ) の **Step 4a 完了 → Step 4b（Hardcore に速度報酬を導入）進行中**。2回目（W&B run `sparkling-dew-15`、vel_coef=0継続）で Hardcore 採点再現が**初めて完走（3/5）**・reward_mean 177.0・goal_steps_mean 847.0。Classic は完走 5/5・goal_steps_mean 766.0（悪化なし）。完走というゲートが取れたので、3回目から `configs/hardcore_finetune_velcoef.yaml`（vel_coef=1）で速度チューニングに入る。詳細は [docs/BEST_CONFIG.md](docs/BEST_CONFIG.md) |
+| **提出候補モデル** | 提出は **班で1つの zip を両モード採点**（[§2.5](#25-最終課題の採点ルール要点)）なので、Classic 用と Hardcore 用を別々に作るのではなく1つの系譜を育てる。現候補は `sparkling-dew-15`（run `pf8e9dqb`、Classic 5/5 ＋ Hardcore 完走 3/5・reward_mean 177.0） |
+| **各自やること** | ① Hardcore 続行（Step 4b）: [notebooks/kaggle_hardcore_finetune.ipynb](notebooks/kaggle_hardcore_finetune.ipynb) を Save & Run All（既定値が続行用に設定済み・編集不要）。② vel_coef の効果測定（Step 3 兼レポート素材）: [notebooks/kaggle_train_config.ipynb](notebooks/kaggle_train_config.ipynb) を Save & Run All |
 
 Step が進んだら（例: Basic で完走が出て Step 3 に移る）、気づいた人がこの表と更新日を PR で書き換えてください。
 
@@ -98,7 +98,8 @@ python src/evaluate.py models/<保存されたモデル>.zip
 | `configs/classic_speed.yaml` | `vel_coef=2` の軽い速度ボーナス | baseline が完走できるようになった後 |
 | `configs/classic_fast.yaml` | `vel_coef=4` + `time_penalty` の速さ重視 | 速度チューニング段階（やり込みは後回し、[§7](#7-進め方提出までの5ステップ)） |
 | `configs/hardcore_smoke.yaml` | Hardcore 環境の配管確認（数千ステップ） | Hardcore に着手する前の動作確認 |
-| `configs/hardcore_finetune.yaml` | Basic のベストモデルを Hardcore へ追加学習 | Basic で完走方策が固まった後（[§7](#7-進め方提出までの5ステップ) Step 4。**必ず `--resume` で使う**） |
+| `configs/hardcore_finetune.yaml` | `vel_coef=0`。Basic のベストモデルを Hardcore へ追加学習（完走優先） | Basic で完走方策が固まった後（[§7](#7-進め方提出までの5ステップ) Step 4a。**必ず `--resume` で使う**） |
+| `configs/hardcore_finetune_velcoef.yaml` | `vel_coef=1`。Hardcore で完走が出た後、速度報酬を導入 | Hardcore 完走が出た後（[§7](#7-進め方提出までの5ステップ) Step 4b。**必ず `--resume` で使う**） |
 | `sweeps/baseline_sweep.yaml` | `vel_coef=0` 固定で seed・学習率を探索 | **いま使うのはこちら**（[§7](#7-進め方提出までの5ステップ) の方針に対応） |
 | `sweeps/classic_sweep.yaml` | `vel_coef` も含めて探索 | baseline 確立後の速度チューニング段階 |
 
@@ -147,7 +148,7 @@ python src/train.py --config configs/hardcore_finetune.yaml --resume checkpoints
 
 Hardcore をゼロから学習するのは CPU の予算ではほぼ無理ですが、観測・行動の次元は Basic と同一なので、「歩ける」モデルに障害物対応だけ追加学習させるのが定石です。最初の目安は、Hardcore の評価で `reward_mean` が「その場で転ぶ」水準（約 -100）を明確に上回ること。その先の目標は完走が出ることです。
 
-**(4b) 完走が出たら、Hardcore でもタイム短縮。** やり方は Step 3 と同じ発想です。`configs/hardcore_finetune.yaml` を `members/<自分の番号>/configs/` にコピーして `vel_coef` を軽く（例: 2）入れ、完走率が落ちていないかを [§6](#6-共通評価プロトコル) の採点再現コマンド（Hardcore側）で確認しながら詰めます。Basic と同様、速さを欲張って完走率を落とすと本番で「平均Reward採点」側に落ちて大損するので、**完走率優先**は変わりません。
+**(4b) 完走が出たら、Hardcore でもタイム短縮。** やり方は Step 3 と同じ発想です。共有 config `configs/hardcore_finetune_velcoef.yaml`（`vel_coef=1`。まだ完走率が低いうちはいきなり大きくせず、崩れなければ次の周で上げる）を使うか、より大きく振りたい場合は `members/<自分の番号>/configs/` にコピーして値を調整し、完走率が落ちていないかを [§6](#6-共通評価プロトコル) の採点再現コマンド（Hardcore側）で確認しながら詰めます。Basic と同様、速さを欲張って完走率を落とすと本番で「平均Reward採点」側に落ちて大損するので、**完走率優先**は変わりません。
 
 **Step 5: 提出モデルの選抜。** 候補モデルを [§6](#6-共通評価プロトコル) の「採点再現コマンド」で両モード測定し、課題の採点式（完走なら平均ステップ最小、非完走なら平均Reward最大）で1つ選び、班で1つの zip として Classroom フォームへ提出します。
 

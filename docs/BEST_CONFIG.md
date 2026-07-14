@@ -65,7 +65,10 @@ sweep 上位のうち、**完走モデルの zip が W&B に残っている fini
 
 **このモデルの位置づけ:**
 
-- Hardcore 追加学習（README §7 Step 4a、[notebooks/kaggle_hardcore_finetune.ipynb](../notebooks/kaggle_hardcore_finetune.ipynb)）の起点。1回目（run `an3wpjb5` / chocolate-yogurt-12、+100万ステップ）の結果は Hardcore eval 報酬 -71→160・採点再現 完走0/5・reward_mean 61.2、Classic 採点は完走 5/5・goal_steps_mean 744.6（2026-07-13 時点）。続行はノートの `RESUME_RUN_PATH` 既定値（この run）から。
+- Hardcore 追加学習（README §7 Step 4a/4b、[notebooks/kaggle_hardcore_finetune.ipynb](../notebooks/kaggle_hardcore_finetune.ipynb)）の起点。
+  - 1周目（run `an3wpjb5` / chocolate-yogurt-12、vel_coef=0、+100万ステップ）: Hardcore eval 報酬 -71→160・採点再現 完走0/5・reward_mean 61.2、Classic 採点は完走 5/5・goal_steps_mean 744.6。
+  - 2周目（run `pf8e9dqb` / sparkling-dew-15、vel_coef=0継続、+100万ステップ）: Hardcore 採点再現で**初めて完走（3/5）**・goal_steps_mean 847.0・reward_mean 177.0、Classic は完走 5/5・goal_steps_mean 766.0（悪化なし、誤差範囲）。Step 4a のゲート（完走）達成（2026-07-13 時点）。
+  - 3周目（Step 4b、進行中）: 完走が取れたので `configs/hardcore_finetune_velcoef.yaml`（vel_coef=1）に切り替えて速度報酬を導入。ノートの `RESUME_RUN_PATH` 既定値は `pf8e9dqb`、`CONFIG_PATH` 既定値はこの velcoef config。
 - Classic 速度チューニング（Step 3）のベース設定。学習率は当たり値 4.43e-4 を引き継ぎ、`vel_coef` を振る。
 - 完走率 80% はまだ改善余地がある（5回中1回転倒）。速度チューニングと並行して、失敗コースの観察（動画）から原因を特定する。
 
