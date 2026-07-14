@@ -1,0 +1,25 @@
+# =====================================================================
+# 「次に回す Hardcore 追加学習」の既定値（このファイルの更新＝次の周の宣言）
+#
+# なぜこのファイルがあるか:
+#   notebooks/kaggle_hardcore_finetune.ipynb の実行変数を Kaggle 側の
+#   ノートに埋めていたところ、GitHub を更新しても Kaggle 側のノートを
+#   更新し忘れて古い設定で1周（約6時間）走ってしまう事故が起きた
+#   （2026-07-14、run celestial-valley-16 = 2周目の完全な再実行）。
+#   実行時に clone した repo からこのファイルを読む方式にすれば、
+#   Kaggle 側のノートが古くても常に最新の既定値で走る。
+#
+# 使い方:
+#   - 次の周の内容が決まったら、このファイルを PR で書き換える。
+#   - ノート側の変数（RESUME_RUN_PATH など）は空/None のままにする。
+#     個人で試したい設定があるときだけノート側で上書きする。
+# =====================================================================
+
+# ベースにする run（entity/project/run_id）。model.zip が残っている Finished run を指定
+resume_run_path: sai3desuyo-/bipedal-timetrial/pf8e9dqb   # 2周目 sparkling-dew-15: Hardcore完走3/5
+
+# 学習に使う config
+config_path: configs/hardcore_finetune_velcoef.yaml        # Step 4b: vel_coef=1 で速度報酬を導入
+
+seed: 0
+total_timesteps: 1000000   # 100万 ≒ 8〜10時間（Kaggle 12時間上限に注意）

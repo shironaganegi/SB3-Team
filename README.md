@@ -8,7 +8,7 @@
 |---|---|
 | **いまの段階** | [§7](#7-進め方提出までの5ステップ) の **Step 4a 完了 → Step 4b（Hardcore に速度報酬を導入）進行中**。2回目（W&B run `sparkling-dew-15`、vel_coef=0継続）で Hardcore 採点再現が**初めて完走（3/5）**・reward_mean 177.0・goal_steps_mean 847.0。Classic は完走 5/5・goal_steps_mean 766.0（悪化なし）。完走というゲートが取れたので、3回目から `configs/hardcore_finetune_velcoef.yaml`（vel_coef=1）で速度チューニングに入る。詳細は [docs/BEST_CONFIG.md](docs/BEST_CONFIG.md) |
 | **提出候補モデル** | 提出は **班で1つの zip を両モード採点**（[§2.5](#25-最終課題の採点ルール要点)）なので、Classic 用と Hardcore 用を別々に作るのではなく1つの系譜を育てる。現候補は `sparkling-dew-15`（run `pf8e9dqb`、Classic 5/5 ＋ Hardcore 完走 3/5・reward_mean 177.0） |
-| **各自やること** | ① Hardcore 続行（Step 4b）: [notebooks/kaggle_hardcore_finetune.ipynb](notebooks/kaggle_hardcore_finetune.ipynb) を Save & Run All（既定値が続行用に設定済み・編集不要）。② vel_coef の効果測定（Step 3 兼レポート素材）: [notebooks/kaggle_train_config.ipynb](notebooks/kaggle_train_config.ipynb) を Save & Run All |
+| **各自やること** | ① Hardcore 続行（Step 4b）: [notebooks/kaggle_hardcore_finetune.ipynb](notebooks/kaggle_hardcore_finetune.ipynb) を Save & Run All。実行する設定の正は [configs/hardcore_next_run.yaml](configs/hardcore_next_run.yaml)（PRで更新）で、ノートは実行時にそれを読むので編集不要。**ただし今回1回だけ、Kaggle 側のノートを GitHub から再インポートすること**（この仕組みへの切り替えのため。以後は不要）。② vel_coef の効果測定（Step 3 兼レポート素材）: [notebooks/kaggle_train_config.ipynb](notebooks/kaggle_train_config.ipynb) を Save & Run All |
 
 Step が進んだら（例: Basic で完走が出て Step 3 に移る）、気づいた人がこの表と更新日を PR で書き換えてください。
 
