@@ -302,6 +302,20 @@ def main():
     print(f"[saved] {save_path}.zip  (eval_reward={eval_reward:.1f})")
 
     # ----------------------------------------------------------------------
+    # 9.3 EvalCallback のベストモデルを W&B へアップロード
+    # ----------------------------------------------------------------------
+    # 【なぜ】WandbCallback（8節）は学習終了時点の最終モデルしかアップロードしない
+    #         （model_save_freq を指定していないため）。一方 Hardcore の評価報酬は
+    #         run の途中で大きく上下することがあり、最終モデルがそのrunのベストとは
+    #         限らない。resume の起点や最終提出の選抜がこの run のベスト到達点を
+    #         使えるよう、models/best_model.zip も明示的に上げておく。
+    if run is not None:
+        best_model_path = os.path.join("models", "best_model.zip")
+        if os.path.exists(best_model_path):
+            wandb.save(best_model_path, base_path="models")
+            print(f"[wandb] best_model.zip をアップロードしました（eval_reward={eval_reward:.1f}）")
+
+    # ----------------------------------------------------------------------
     # 9.5 ベストモデルの走りを動画にして W&B へ自動アップロード
     # ----------------------------------------------------------------------
     # 【なぜ】完走率やステップ数の数字だけでは「どんな歩き方か」「どこで転ぶか」
