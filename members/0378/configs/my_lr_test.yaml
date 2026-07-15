@@ -1,0 +1,35 @@
+# =====================================================================
+# classic baseline: vel_coef=0 の素の TQC。
+# まずこれで「ちゃんと完走できる方策」を固めるための設定です。
+# 使い方: python src/train.py --config configs/classic_baseline.yaml
+# =====================================================================
+
+# --- ■ よく変える項目 ------------------------------------------------
+env_id: BipedalWalker-v3
+vel_coef: 0            # 速度ボーナス係数。0 = SpeedReward なし＝素の環境。
+seed: 5               # 乱数シード。人ごとに変えて分担すると探索が広がる。
+total_timesteps: 1000000   # 学習の総ステップ数。CPU だと長いので様子を見て調整。
+
+# --- TQC ハイパラ（araffin の BipedalWalker-v3 用の定番値）-----------
+#     当たりが出るまでは基本いじらず、まずこのまま回すのがおすすめ。
+#     別のハイパラ（例: ent_coef）を試したいときは、ここに1行足すだけで
+#     自動的に TQC へ渡ります（src/train.py の編集は不要）。
+learning_starts: 10000   # この数ステップは経験を貯めるだけで学習しない
+batch_size: 256
+buffer_size: 300000      # 経験再生バッファの大きさ（メモリ使用に影響）
+learning_rate: 7.3e-4
+use_sde: true            # 状態依存の探索（BipedalWalker では有効）
+train_freq: 8
+gradient_steps: 8
+gamma: 0.98              # 割引率
+tau: 0.02                # ターゲットネットの更新係数
+
+# --- 評価・保存の間隔（普段はいじらなくてよい）----------------------
+eval_freq: 10000         # この間隔(step)ごとに素の環境で評価しベスト保存
+n_eval_episodes: 10      # 1回の評価で回すエピソード数
+checkpoint_freq: 50000   # 再開用チェックポイントの保存間隔(step)
+
+# --- W&B（ローカル単体ならオフでよい）-------------------------------
+use_wandb: false
+wandb_project: bipedal-timetrial
+wandb_entity: null       # null なら自分の既定 entity を使う
