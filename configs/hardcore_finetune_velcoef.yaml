@@ -1,0 +1,52 @@
+# =====================================================================
+# hardcore finetune Step 4b: 完走が出た Hardcore モデルに、速度報酬(vel_coef)を
+# 追加学習で入れる（configs/hardcore_finetune.yaml の続き）。
+#
+# なぜこの設定があるか:
+#   configs/hardcore_finetune.yaml (vel_coef=0) で Hardcore 完走(3/5)が
+#   取れた（2026-07-13、run sparkling-dew-15 / pf8e9dqb）。
+#   採点は「完走率→完走時ステップ数→報酬」の順なので、完走が取れた今は
+#   次にステップ数（速さ）を縮める段階に入る。平坦区間の速歩は Classic の
+#   タイム短縮にも波及する見込み（README ロードマップ）。
+#
+# vel_coef=1 を選んだ理由:
+#   完走率がまだ60%で不安定なため、Classic 側実績のある vel_coef=2 は
+#   完走率をさらに崩すリスクがある。まず1で「完走を崩さず速くなるか」を
+#   確認し、崩れなければ次の周で2に上げる。
+#
+# 使い方（必ず --resume で Step 4a の Hardcore チェックポイントを渡す）:
+#   python src/train.py --config configs/hardcore_finetune_velcoef.yaml \
+#       --resume checkpoints/<Step4aで学習したzip>
+#
+# 注意:
+#   --resume 時、下の TQC ハイパラはチェックポイント保存時点の値が使われ、
+#   この YAML の値は反映されません。反映されるのは env_id・vel_coef・
+#   total_timesteps などの学習制御用キーだけです。
+# =====================================================================
+
+# --- ■ よく変える項目 ------------------------------------------------
+env_id: BipedalWalkerHardcore-v3
+vel_coef: 1            # Step 4a(0)から一段階だけ速度報酬を入れる
+seed: 0
+total_timesteps: 1000000
+
+# --- TQC ハイパラ（--resume 時は使われない。新規学習で使う場合の既定値）---
+learning_starts: 10000
+batch_size: 256
+buffer_size: 300000
+learning_rate: 7.3e-4
+use_sde: true
+train_freq: 8
+gradient_steps: 8
+gamma: 0.98
+tau: 0.02
+
+# --- 評価・保存の間隔（普段はいじらなくてよい）----------------------
+eval_freq: 10000
+n_eval_episodes: 10
+checkpoint_freq: 50000
+
+# --- W&B（ローカル単体ならオフでよい）-------------------------------
+use_wandb: false
+wandb_project: bipedal-timetrial
+wandb_entity: null

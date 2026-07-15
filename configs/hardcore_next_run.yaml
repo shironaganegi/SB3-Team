@@ -1,0 +1,36 @@
+# =====================================================================
+# 「次に回す Hardcore 追加学習」の既定値（このファイルの更新＝次の周の宣言）
+#
+# なぜこのファイルがあるか:
+#   notebooks/kaggle_hardcore_finetune.ipynb の実行変数を Kaggle 側の
+#   ノートに埋めていたところ、GitHub を更新しても Kaggle 側のノートを
+#   更新し忘れて古い設定で1周（約6時間）走ってしまう事故が起きた
+#   （2026-07-14、run celestial-valley-16 = 2周目の完全な再実行）。
+#   実行時に clone した repo からこのファイルを読む方式にすれば、
+#   Kaggle 側のノートが古くても常に最新の既定値で走る。
+#
+# 使い方:
+#   - 次の周の内容が決まったら、このファイルを PR で書き換える。
+#   - ノート側の変数（RESUME_RUN_PATH など）は空/None のままにする。
+#     個人で試したい設定があるときだけノート側で上書きする。
+#
+# 2026-07-15 の変更（vel_coef=1 → 0 に戻した理由）:
+#   vel_coef=1 で回した Step 4b の1周目（run 0chynjib）は学習曲線が
+#   非常に不安定（raw評価で -215〜282 まで乱高下、run終了時点はたまたま
+#   谷の93）で、resume の起点にするのは危険と判断した。あわせて
+#   src/train.py を直し、EvalCallback のベストモデル（models/best_model.zip）
+#   も学習終了時に W&B へアップロードするようにした（これまでは
+#   WandbCallback が学習終了時点の最終モデルしか上げておらず、runの中の
+#   ベスト到達点が回収できなかった）。手元の採点再現では resume 元の
+#   pf8e9dqb 自体の Hardcore 完走率が 55%（20シード中11完走）とまだ低いため、
+#   速度チューニングより先に完走率を上げる方針に戻す。
+# =====================================================================
+
+# ベースにする run（entity/project/run_id）。model.zip が残っている Finished run を指定
+resume_run_path: sai3desuyo-/bipedal-timetrial/pf8e9dqb   # 2周目 sparkling-dew-15: Hardcore完走 11/20（20シード再測定）
+
+# 学習に使う config
+config_path: configs/hardcore_finetune.yaml        # Step 4bをやり直す前に、vel_coef=0で完走率をまず上げる
+
+seed: 0
+total_timesteps: 1000000   # 100万 ≒ 8〜10時間（Kaggle 12時間上限に注意）

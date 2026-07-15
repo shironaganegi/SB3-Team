@@ -6,3 +6,5 @@ gymnasium[box2d]==1.3.0
 wandb==0.28.0
 pyyaml==6.0.3
 tensorboard==2.20.0
+imageio==2.37.3        # src/record_video.py の mp4 書き出しに使用
+imageio-ffmpeg==0.6.0  # imageio の ffmpeg バックエンド
