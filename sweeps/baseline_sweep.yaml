@@ -1,13 +1,12 @@
 # =====================================================================
-# W&B sweep 定義（速度チューニング版）: vel_coef も含めてハイパラの「当たり」を
-# 自動探索するための設定。
+# W&B sweep 定義（baseline 専念版）: vel_coef=0 の素の TQC で「完走できる方策」を
+# まず固めるための探索。速度ボーナスは載せず、seed と learning_rate だけ振る。
 #
-# 【いつ使う?】baseline（完走方策）が固まった後の速度チューニング段階で。
-# いまの段階では vel_coef=0 固定の sweeps/baseline_sweep.yaml の方を使います
-# （README §7「まず baseline を固める」の方針。使い分けは README §4.5 表B）。
+# 速度チューニング（vel_coef を振る）は sweeps/classic_sweep.yaml の方を使う。
+# README §7「まず baseline を固め、速度のやり込みは後回し」の方針に対応。
 #
 # 使い方:
-#   1. 手元で一度だけ sweep を作る:  wandb sweep sweeps/classic_sweep.yaml
+#   1. 手元で一度だけ sweep を作る:  wandb sweep sweeps/baseline_sweep.yaml
 #      → 出力に entity/project/sweep_id が表示されるので控える。
 #   2. Kaggle ノート（notebooks/kaggle_commit.ipynb）でその ID を使い agent を回す。
 #
@@ -16,18 +15,17 @@
 # =====================================================================
 
 program: src/train.py
-project: bipedal-timetrial # configs の wandb_project と揃える（未指定だと W&B の
-                           # 既定プロジェクトに run が散らばってしまうため必須）
+project: bipedal-timetrial # configs の wandb_project と揃える（W&B 上の置き場所を統一）
 method: bayes              # ベイズ最適化で良さそうな値を優先的に探す
 
 metric:
   name: eval/mean_reward   # EvalCallback が記録する代理指標。最終判断には使わない。
   goal: maximize
 
-# --- 探索するパラメータ（ここを編集して探索範囲を変える）------------
+# --- 探索するパラメータ -------------------------------------------------
 parameters:
   vel_coef:
-    values: [2, 3, 4, 5]   # 速度ボーナス係数の候補
+    values: [0]            # baseline 専念（速度ボーナスなし＝素の環境と同じ報酬で学習）
   seed:
     values: [0, 1, 2]      # シードを振って安定性も見る
   learning_rate:

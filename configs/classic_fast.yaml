@@ -1,13 +1,14 @@
 # =====================================================================
-# classic speed: vel_coef=2 で軽く速度ボーナスを乗せた設定。
-# baseline で完走方策が固まったあと、「タイムを縮めつつ完走率を保てるか」を試します。
-# 使い方: python src/train.py --config configs/classic_speed.yaml
-# baseline との違いは vel_coef だけ（下の1行）。他は同じ。
+# classic fast: 速い歩容を狙う time-trial 用設定。
+# vel_coef で前進速度を強めに加点し、time_penalty で1ステップごとに軽く減点して
+# ゴール到達を急がせる。最終評価は src/evaluate.py（素の環境・完走率・ステップ数）で行う。
+# 使い方: python src/train.py --config configs/classic_fast.yaml
 # =====================================================================
 
 # --- ■ よく変える項目 ------------------------------------------------
 env_id: BipedalWalker-v3
-vel_coef: 2            # >0 なので学習環境にだけ SpeedReward が乗る。大きいほど速さ重視。
+vel_coef: 4          # speed(=2) より強めの前進ボーナス。速さ重視。
+time_penalty: 0.02   # 1ステップごとの軽い減点。大きすぎると早期転倒の損切りを誘発するので控えめ。
 seed: 0
 total_timesteps: 1000000
 

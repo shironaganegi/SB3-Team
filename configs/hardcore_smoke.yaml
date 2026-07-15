@@ -1,13 +1,20 @@
 # =====================================================================
-# smoke（配管確認用）: 学習→保存→評価が端から端まで通るかを数千ステップで確認するだけ。
-# ちゃんとした方策は学習されません。「エラーなく一周回るか」を見るためのものです。
+# hardcore smoke（Hardcore 配管確認用）: Hardcore 環境で学習→保存→評価が
+# 端から端まで通るかを数千ステップで確認するだけ。方策は学習されません。
+#
+# Hardcore とは: 平地メインの Basic と違い、穴・階段・障害物のあるコース。
+# 最終課題の採点は Basic / Hardcore の両モードで行われます（README §2.5）。
+#
 # 使い方:
-#   python src/train.py --config configs/smoke.yaml
-#   python src/evaluate.py models/<保存されたモデル>.zip
+#   # ゼロから配管確認
+#   python src/train.py --config configs/hardcore_smoke.yaml
+#
+#   # Basic で学習済みのチェックポイントから Hardcore へ引き継げるかの確認
+#   python src/train.py --config configs/hardcore_smoke.yaml --resume checkpoints/<basicのzip>
 # =====================================================================
 
 # --- ■ よく変える項目 ------------------------------------------------
-env_id: BipedalWalker-v3
+env_id: BipedalWalkerHardcore-v3   # Hardcore 版。観測・行動は Basic と同一なので引き継ぎ可
 vel_coef: 0            # 0 = SpeedReward なし（素の TQC）
 seed: 0
 total_timesteps: 4000   # 配管確認用にごく短く
