@@ -68,7 +68,7 @@ sweep 上位のうち、**完走モデルの zip が W&B に残っている fini
 - Hardcore 追加学習（README §7 Step 4a/4b、[notebooks/kaggle_hardcore_finetune.ipynb](../notebooks/kaggle_hardcore_finetune.ipynb)）の起点。
   - 1周目（run `an3wpjb5` / chocolate-yogurt-12、vel_coef=0、+100万ステップ）: Hardcore eval 報酬 -71→160・採点再現 完走0/5・reward_mean 61.2、Classic 採点は完走 5/5・goal_steps_mean 744.6。
   - 2周目（run `pf8e9dqb` / sparkling-dew-15、vel_coef=0継続、+100万ステップ）: Hardcore 採点再現で**初めて完走（3/5）**・goal_steps_mean 847.0・reward_mean 177.0、Classic は完走 5/5・goal_steps_mean 766.0（悪化なし、誤差範囲）。Step 4a のゲート（完走）達成（2026-07-13 時点）。
-  - 3周目（Step 4b、進行中）: 完走が取れたので `configs/hardcore_finetune_velcoef.yaml`（vel_coef=1）に切り替えて速度報酬を導入。実行する設定（resume 先 `pf8e9dqb`・この velcoef config）の正は [configs/hardcore_next_run.yaml](../configs/hardcore_next_run.yaml) にあり、ノートは実行時にそれを読む（ノート側の変数は空のままにする）。
+  - 3周目（run `0chynjib` / absurd-wildflower-17、vel_coef=1、+100万ステップ、2026-07-14完了）: `configs/hardcore_finetune_velcoef.yaml` に切り替えて速度報酬を導入したが、学習曲線が非常に不安定（raw評価で -215〜282 を乱高下、run終了時点はたまたま谷の93）だった。**resume の起点として採用せず**、[§7](#7-追記-2026-07-15-hardcore実機テストの調査) の対応に切り替えた。
 - Classic 速度チューニング（Step 3）のベース設定。学習率は当たり値 4.43e-4 を引き継ぎ、`vel_coef` を振る。
 - 完走率 80% はまだ改善余地がある（5回中1回転倒）。速度チューニングと並行して、失敗コースの観察（動画）から原因を特定する。
 
@@ -93,3 +93,19 @@ python src/evaluate.py models/model.zip --env-id BipedalWalkerHardcore-v3 --seed
 # 走りの動画を作る
 python src/record_video.py models/model.zip --seed 1
 ```
+
+## 7. 追記（2026-07-15）: Hardcore実機テストの調査
+
+**きっかけ:** 先生の評価サイトで提出物（`models/final/team25_tqc_sb3_env1_random.zip`）を走らせたところ、Classic は14秒で完走したが Hardcore は3秒で転倒した。
+
+**調査したこと:**
+
+1. **提出物の由来をハッシュ照合で確認。** `team25_tqc_sb3_env1_random.zip` は本リポジトリの命名規則に沿っていない（提出用に手動リネームされたファイル）ため、直前に完了していた Step 4b の run `0chynjib`（vel_coef=1）由来だと最初は推測したが、MD5 を比較したところ **`pf8e9dqb`（sparkling-dew-15、vel_coef=0）の model.zip と完全一致**した。3周目（vel_coef=1）はまだ提出物に反映されていない。
+2. **Hardcore 完走率を20シードで測り直した。** 従来の5シード（3/5=60%）は誤差が大きいため、`--seeds 0 1 ... 19 --episodes 1` で再測定したところ **11/20（55%）・goal_steps_mean 842.2・reward_mean 183.5** と、5シードの結果とほぼ一致する水準だった。3秒転倒は、モデルの劣化やバグではなく、**約45%の確率で起きる想定内のランダムコース失敗**である可能性が高い（ユーザーの「コースがランダムだから」という見立ては妥当）。
+3. **W&B のrun履歴から、資産管理上の問題を発見。** `src/train.py` の `WandbCallback`（[src/train.py:260](../src/train.py#L260)）は `model_save_freq` を指定していなかったため、学習終了時点の最終モデルしか W&B にアップロードされていなかった。3周目の run `0chynjib` は raw評価で -215〜282 を乱高下しており、run終了時点（global_step=4,000,000）はたまたま谷の93（ピークは global_step=3,430,000 時点の282）。`EvalCallback` が管理するそのrunのベストモデル（`models/best_model.zip`）は Kaggle セッション内にしか残らず、W&B にも上がっていなかったため、**ピーク時点のモデルは実質的に回収不能**になっていた。
+
+**対応:**
+
+- `src/train.py` を修正し、学習終了時に `models/best_model.zip` も `wandb.save()` で明示的に W&B へアップロードするようにした。以後の run は最終モデルとベストモデルの両方が残る。
+- `configs/hardcore_next_run.yaml` の次周設定を、vel_coef=1（速度チューニング）から vel_coef=0（`configs/hardcore_finetune.yaml`）に戻した。resume 元の `pf8e9dqb` 自体の完走率がまだ55%であり、速度を追う前に完走率を上げるべき局面と判断したため。
+- 提出候補（`pf8e9dqb`）は変更なし。現時点でこれを上回る確認済みモデルはない。
