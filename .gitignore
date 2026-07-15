@@ -12,3 +12,6 @@ __pycache__/
 # 例外: 最終提出候補のモデルだけは models/final/ にコミットしてよい
 !models/final/
 !models/final/**
+
+# OS が自動生成するファイル
+.DS_Store
