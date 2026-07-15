@@ -22,9 +22,9 @@
 
 | 項目 | 現在 |
 |---|---|
-| **いまの段階** | [docs/ROADMAP.md](docs/ROADMAP.md) の **Step 4a 完了 → Step 4b（Hardcore に速度報酬を導入）は仕切り直し**。先生の評価サイトの実機テストで Classic は14秒完走、Hardcore は3秒転倒。調査の結果、提出物は `sparkling-dew-15`（run `pf8e9dqb`、vel_coef=0）由来で、Hardcore 完走率は20シード再測定で **11/20（55%）**。3秒転倒は「約45%の確率で起きる想定内のランダムコース失敗」。ただし55%はまだ低く、速度（vel_coef=1）を追う前に完走率を底上げすべき局面。直近の vel_coef=1 の run `0chynjib` は学習曲線が不安定で **resume 起点にしない**。あわせて best_model 未回収の資産管理バグを `src/train.py` で修正済み。調査の詳細は [docs/BEST_CONFIG.md §7](docs/BEST_CONFIG.md#7-追記2026-07-15-hardcore実機テストの調査) |
-| **提出候補モデル** | 提出は**班で1つの zip を両モード採点**なので、1つの系譜を育てる。現候補は `sparkling-dew-15`（run `pf8e9dqb`。Classic 5/5 ＋ Hardcore 11/20=55%・reward_mean 183.5） |
-| **各自やること** | ① Hardcore 完走率の底上げ: `configs/hardcore_next_run.yaml` は `pf8e9dqb` を resume 元に vel_coef=0 へ戻し済み。[notebooks/kaggle_hardcore_finetune.ipynb](notebooks/kaggle_hardcore_finetune.ipynb) を Save & Run All。② vel_coef の効果測定（Step 3 兼レポート素材）: [notebooks/kaggle_train_config.ipynb](notebooks/kaggle_train_config.ipynb) を Save & Run All |
+| **いまの段階** | [docs/ROADMAP.md](docs/ROADMAP.md) の **Step 4a（Hardcore 完走率の底上げ）を継続中**。`pf8e9dqb` から vel_coef=0 で再学習した4周目（run `jp5jwddi` / mild-lion-18）は、eval 報酬がピーク **243.5**（resume 元の 122 を大幅超え）まで伸びて好調だったが、3.69M step 時点で **NaN クラッシュ**（gSDE の数値爆発。12時間上限ではない）。途中クラッシュだとモデルが W&B に上がらない作りだったため、ピークのモデルは回収できなかった。`src/train.py` に対策3点（発散防止・NaN 時の安全停止・ベスト更新のたびに即アップロード）を入れて、**同じ設定で同じ周をやり直す**。調査の詳細は [docs/BEST_CONFIG.md §8](docs/BEST_CONFIG.md#8-追記2026-07-15-mild-lion-18-の-nan-クラッシュ調査) |
+| **提出候補モデル** | 提出は**班で1つの zip を両モード採点**なので、1つの系譜を育てる。現候補は `sparkling-dew-15`（run `pf8e9dqb`。Classic 5/5 ＋ Hardcore 11/20=55%・reward_mean 183.5）。4周目でピーク 243.5 が出たので、やり直しの周で更新できる見込みが高い |
+| **各自やること** | ① Hardcore 完走率の底上げ（4周目のやり直し）: `configs/hardcore_next_run.yaml` は変更なし（`pf8e9dqb` 起点・vel_coef=0）。**train.py の対策が main に入ってから**、[notebooks/kaggle_hardcore_finetune.ipynb](notebooks/kaggle_hardcore_finetune.ipynb) を Save & Run All。② vel_coef の効果測定（Step 3 兼レポート素材）: [notebooks/kaggle_train_config.ipynb](notebooks/kaggle_train_config.ipynb) を Save & Run All |
 
 Step が進んだら、気づいた人がこの表と更新日を PR で書き換えてください。
 

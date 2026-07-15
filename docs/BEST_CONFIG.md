@@ -109,3 +109,22 @@ python src/record_video.py models/model.zip --seed 1
 - `src/train.py` を修正し、学習終了時に `models/best_model.zip` も `wandb.save()` で明示的に W&B へアップロードするようにした。以後の run は最終モデルとベストモデルの両方が残る。
 - `configs/hardcore_next_run.yaml` の次周設定を、vel_coef=1（速度チューニング）から vel_coef=0（`configs/hardcore_finetune.yaml`）に戻した。resume 元の `pf8e9dqb` 自体の完走率がまだ55%であり、速度を追う前に完走率を上げるべき局面と判断したため。
 - 提出候補（`pf8e9dqb`）は変更なし。現時点でこれを上回る確認済みモデルはない。
+
+## 8. 追記（2026-07-15）: mild-lion-18 の NaN クラッシュ調査
+
+**きっかけ:** §7 の対応後に回した Hardcore 追加学習の4周目（run `jp5jwddi` / mild-lion-18、`pf8e9dqb` から vel_coef=0 で resume）が crashed になった。
+
+**調査したこと:**
+
+1. **12時間上限ではなかった。** run の実行時間は約4.5時間（16,203秒）、進捗は 3,686,897 step（100万中68.7万）。セッション上限による強制終了なら約12時間で切られるはずで、パターンが違う。
+2. **output.log の末尾にトレースバックが残っていた。** `ValueError: Expected parameter scale ... found invalid values: tensor([[nan, ...]])`。直前の学習ログで `train/std = 2.72e+14`（log_std ≈ 33）まで膨らんでおり、gSDE（`use_sde: true`）の探索ノイズパラメータ log_std が発散 → `exp(log_std)` が桁あふれで NaN → 分布の生成で例外、という数値爆発クラッシュだった。SB3 の gSDE では既知の失敗モードで、公式の対策は std 計算を expln 方式（`use_expln=True`）に切り替えること。expln は log_std≤0 の範囲では exp と完全に同一の値を返すため、正常な学習挙動は変わらない。
+3. **学習自体はクラッシュまで好調だった。** eval/mean_reward は resume 直後の -54（リプレイバッファが空になるための一時的な落ち込み）から回復し、3.65M step 時点でピーク **243.5** に到達（resume 元 `pf8e9dqb` の終了時 122 を大幅に上回る）。つまり「vel_coef=0 のまま完走率を底上げする」という §7 の方針自体は機能していた。
+4. **ピークのモデルは回収できなかった。** §7 で入れた best_model.zip のアップロードは**学習が正常終了したときにしか実行されない**ため、途中クラッシュした今回の run からは model.zip も best_model.zip も回収できず、ピーク 243.5 のモデルは消失した。§7 と同種の資産管理バグが「クラッシュ時」というより悪い形で残っていたことになる。
+
+**対応（src/train.py に3点）:**
+
+- **発散の予防:** モデルの新規作成・resume の直後に gSDE の `use_expln` を一律で有効化（`enable_expln()`）。resume では YAML のハイパラが反映されないため、config ではなくコード側で常時有効にする。
+- **墜落の回避:** log_std に NaN/inf を検知したら学習を安全に止めるコールバック（`StopOnNonFiniteCallback`）を追加。万一発散しても run は「正常終了」になり、最終保存・アップロード・動画作成まで走る。
+- **資産回収の耐クラッシュ化:** EvalCallback がベストモデルを更新するたびに、その場で W&B へアップロードするコールバック（`UploadBestToWandbCallback`）を追加。以後は run がどの理由で途中終了しても、その時点までのベストは必ず W&B に残る。
+
+**次の一手:** `configs/hardcore_next_run.yaml` は変更なし（`pf8e9dqb` 起点・vel_coef=0）。この対策を main に取り込んだうえで、同じ周を Kaggle でやり直す。提出候補は引き続き `pf8e9dqb`（今回の run で 243.5 が出た事実は、この周のやり直しで上回れる見込みが高いことを示唆している）。
