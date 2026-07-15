@@ -1,0 +1,33 @@
+# =====================================================================
+# Step 3（タイム短縮）用の個人実験 config（0375）。
+# configs/classic_speed.yaml（vel_coef=2）をベースに、公式 sweep ksgu0vds で
+# ベストだった学習率 4.43e-4 / seed 1 を採用（選定理由は docs/BEST_CONFIG.md）。
+# 使い方: python src/train.py --config members/0375/configs/velcoef2_lr4.4e-4_seed1.yaml
+# =====================================================================
+
+# --- ■ よく変える項目 ------------------------------------------------
+env_id: BipedalWalker-v3
+vel_coef: 2            # 速度ボーナス。baseline(0) との差がタイム短縮の効果測定になる
+seed: 1                # sweep ベスト（drawn-sweep-5）に合わせる
+total_timesteps: 1000000
+
+# --- TQC ハイパラ -----------------------------------------------------
+learning_starts: 10000
+batch_size: 256
+buffer_size: 300000
+learning_rate: 4.43e-4   # sweep ベスト（drawn-sweep-5: eval報酬336.2）の当たり値
+use_sde: true
+train_freq: 8
+gradient_steps: 8
+gamma: 0.98
+tau: 0.02
+
+# --- 評価・保存の間隔 --------------------------------------------------
+eval_freq: 10000
+n_eval_episodes: 10
+checkpoint_freq: 50000
+
+# --- W&B ---------------------------------------------------------------
+use_wandb: true
+wandb_project: bipedal-timetrial
+wandb_entity: null
