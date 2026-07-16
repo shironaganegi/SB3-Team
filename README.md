@@ -2,13 +2,13 @@
 
 > **GitHub / Kaggle / W&B の使い方が初めての人は、まず [docs/GUIDE.md（チーム作業ガイド）](docs/GUIDE.md) を読んでください。** 環境構築からブランチ作業・Pull Request の出し方まで初心者向けに手順をまとめています。この README は技術仕様が中心です。
 
-## 📍 いまのフェーズ（2026-07-15 更新）
+## 📍 いまのフェーズ（2026-07-16 更新）
 
 | 項目 | 現在 |
 |---|---|
-| **いまの段階** | [§7](#7-進め方提出までの5ステップ) の **Step 4a 完了 → Step 4b（Hardcore に速度報酬を導入）は仕切り直し**。先生の評価サイトで実機テストしたところ Classic は14秒で完走、Hardcore は3秒で転倒。W&B を確認した結果、提出物は `sparkling-dew-15`（run `pf8e9dqb`、vel_coef=0）で、ハッシュ照合と手元での採点再現で確認済み。Hardcore 完走率を20シードで測り直すと **11/20（55%）**・goal_steps_mean 842.2・reward_mean 183.5（従来の5シードでの3/5とほぼ同じ水準で、モデル劣化ではなく元々の完走率）。3秒転倒は「約45%の確率で起きる想定内のランダムコース失敗」であり、コース次第という当初の見立ては妥当。ただし完走率55%はまだ低く、次に vel_coef=1（Step 4b）で速度を追うより先に完走率そのものを底上げすべき局面。あわせて、直近に走った Step 4b の試行run（`0chynjib`、vel_coef=1）は学習曲線が非常に不安定（raw評価で -215〜282 まで乱高下、run終了時点は谷の93）だったため、**そのまま resume 起点にしない**。原因は `WandbCallback` が学習終了時点の最終モデルしかアップロードしておらず、runの中でのベスト到達点（`models/best_model.zip`）が回収できていなかったこと。[src/train.py](src/train.py) を修正し、以後は best_model.zip も自動でW&Bにアップロードされるようにした。詳細は [docs/BEST_CONFIG.md](docs/BEST_CONFIG.md) |
-| **提出候補モデル** | 提出は **班で1つの zip を両モード採点**（[§2.5](#25-最終課題の採点ルール要点)）なので、Classic 用と Hardcore 用を別々に作るのではなく1つの系譜を育てる。現候補は変わらず `sparkling-dew-15`（run `pf8e9dqb`、Classic 5/5 ＋ Hardcore 完走 11/20＝55%・reward_mean 183.5、20シードで再測定） |
-| **各自やること** | ① Hardcore 完走率の底上げ（Step 4bを速度優先からやり直し）: `configs/hardcore_next_run.yaml` の `resume_run_path` は `pf8e9dqb` のまま・`config_path` は当面 `configs/hardcore_finetune.yaml`（vel_coef=0）に戻し、[notebooks/kaggle_hardcore_finetune.ipynb](notebooks/kaggle_hardcore_finetune.ipynb) を Save & Run All。今回の train.py 修正で best_model.zip も W&B に残るので、次周はそちらを基準に良し悪しを判断する。② vel_coef の効果測定（Step 3 兼レポート素材）: [notebooks/kaggle_train_config.ipynb](notebooks/kaggle_train_config.ipynb) を Save & Run All |
+| **いまの段階** | [§7](#7-進め方提出までの5ステップ) の **Step 4a 完了 → Step 4b は保留、完走率の底上げを継続中**。前回の資産管理バグ修正（`src/train.py` が `models/best_model.zip` もW&Bへ上げるようにした変更）後、`pf8e9dqb` から vel_coef=0 で+100万step 追加学習した run `75glj5ue`（light-hill-20）が完走。今回初めて best_model.zip が実際に回収でき、20シード採点再現で **Hardcore完走 65%（13/20）・goal_steps_mean 877.0・reward_mean 208.8**、**Classic 100%（5/5）・goal_steps_mean 771.2** と、resume元の `pf8e9dqb`（Hardcore 55%）から明確に改善（Classic劣化なし）。なお同runの最終モデル（model.zip）は完走60%とbest_model.zipより劣っており、ベスト到達点の回収が引き続き重要と確認できた。合わせて [notebooks/kaggle_hardcore_finetune.ipynb](notebooks/kaggle_hardcore_finetune.ipynb) を修正し、resume時に model.zip ではなく best_model.zip を優先取得するようにした（これまでは best_model.zip をW&Bに上げるだけで、resume時に読みに行く先が model.zip のままだった）。完走率はまだ伸びしろがあるため、vel_coef=1（Step 4b）に戻すのはもう1周分の様子を見てから判断する。詳細は [docs/BEST_CONFIG.md](docs/BEST_CONFIG.md) |
+| **提出候補モデル** | 提出は **班で1つの zip を両モード採点**（[§2.5](#25-最終課題の採点ルール要点)）なので、Classic 用と Hardcore 用を別々に作るのではなく1つの系譜を育てる。`models/final/team25_tqc_sb3_env1_random.zip` を `sparkling-dew-15`（`pf8e9dqb`、Hardcore 55%）から `light-hill-20`（run `75glj5ue` の `best_model.zip`、Classic 100%＝5/5・Hardcore 65%＝13/20・goal_steps_mean 877.0）に更新済み |
+| **各自やること** | ① Hardcore 完走率の底上げ（継続）: `configs/hardcore_next_run.yaml` の `resume_run_path` を `75glj5ue` に更新済み・`config_path` は引き続き `configs/hardcore_finetune.yaml`（vel_coef=0）。[notebooks/kaggle_hardcore_finetune.ipynb](notebooks/kaggle_hardcore_finetune.ipynb) を Save & Run All。② vel_coef の効果測定（Step 3 兼レポート素材）: [notebooks/kaggle_train_config.ipynb](notebooks/kaggle_train_config.ipynb) を Save & Run All |
 
 Step が進んだら（例: Basic で完走が出て Step 3 に移る）、気づいた人がこの表と更新日を PR で書き換えてください。
 

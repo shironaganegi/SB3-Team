@@ -109,3 +109,24 @@ python src/record_video.py models/model.zip --seed 1
 - `src/train.py` を修正し、学習終了時に `models/best_model.zip` も `wandb.save()` で明示的に W&B へアップロードするようにした。以後の run は最終モデルとベストモデルの両方が残る。
 - `configs/hardcore_next_run.yaml` の次周設定を、vel_coef=1（速度チューニング）から vel_coef=0（`configs/hardcore_finetune.yaml`）に戻した。resume 元の `pf8e9dqb` 自体の完走率がまだ55%であり、速度を追う前に完走率を上げるべき局面と判断したため。
 - 提出候補（`pf8e9dqb`）は変更なし。現時点でこれを上回る確認済みモデルはない。
+
+## 8. 追記（2026-07-16）: best_model.zip 回収後の初サイクルと resume先の更新
+
+**背景:** §7の修正（`src/train.py` が `models/best_model.zip` も学習終了時にW&Bへアップロード）後、最初に走ったのが `pf8e9dqb` から vel_coef=0 で+100万step の run `75glj5ue`（light-hill-20、2026-07-15開始・runtime約10時間・global_step 4,000,000）。
+
+**採点再現結果（20シード、`python src/evaluate.py <model> --seeds 0..19 --episodes 1`）:**
+
+| モデル | Hardcore完走率 | goal_steps_mean | reward_mean | Classic完走率（5シード） |
+|---|---|---|---|---|
+| `75glj5ue` の `best_model.zip`（run中の評価ベスト、eval_reward=288.0 @global_step 3,930,000） | **65%（13/20）** | 877.0 | 208.8 | 100%（5/5）、goal_steps_mean 771.2 |
+| `75glj5ue` の `model.zip`（学習終了時点、eval_reward=125.8 @global_step 4,000,000） | 60%（12/20） | 851.2 | 190.7 | 未測定 |
+| `pf8e9dqb`（resume元、参考） | 55%（11/20） | 842.2 | 183.5 | 100%（5/5）、goal_steps_mean 766.0 |
+
+学習曲線は今回も乱高下しており（3,930,000stepでピーク288.0、4,000,000step終了時点は125.8まで低下）、`best_model.zip` が `model.zip` を完走率・reward_mean とも上回った。best_model.zip 回収の意義が実測でも確認できた。
+
+**発見した追加のバグ:** `configs/hardcore_next_run.yaml` の resume先を更新するだけでは不十分だった。[notebooks/kaggle_hardcore_finetune.ipynb](../notebooks/kaggle_hardcore_finetune.ipynb) が resume 元の run から常に `model.zip`（最終モデル）だけをダウンロードする実装になっており、run に `best_model.zip` があってもそちらを使わない状態だった。ノートを修正し、`best_model.zip` があればそちらを優先し、無い（古い）runでは `model.zip` にフォールバックするようにした。
+
+**対応:**
+
+- `configs/hardcore_next_run.yaml` の `resume_run_path` を `pf8e9dqb` → `75glj5ue` に更新（Hardcore完走率55%→65%への改善を受けて）。`config_path` は vel_coef=0 のまま継続（完走率にまだ伸びしろがあるため）。
+- `75glj5ue` の `best_model.zip` が Classic を維持しつつ Hardcore で明確に上回ったため、`models/final/team25_tqc_sb3_env1_random.zip` を `pf8e9dqb` からこちらに差し替えた。
