@@ -42,7 +42,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.utils import set_random_seed
 from sb3_contrib import TQC
 
-from wrappers import SpeedReward, SoftFallPenalty
+from wrappers import SpeedReward
 
 
 # YAML の項目は次の2種類に自動で振り分けられます。
@@ -66,15 +66,10 @@ TQC_PARAM_NAMES = set(inspect.signature(TQC.__init__).parameters) - _EXPLICITLY_
 
 # このスクリプト自身が読む「学習の制御用」キー
 CONTROL_KEYS = {
-    "env_id", "vel_coef", "time_penalty", "fall_penalty", "seed", "total_timesteps",
+    "env_id", "vel_coef", "time_penalty", "seed", "total_timesteps",
     "eval_freq", "n_eval_episodes", "checkpoint_freq",
     "use_wandb", "wandb_project", "wandb_entity",
 }
-
-# fall_penalty の既定値（素の環境と同じ -100 = SoftFallPenalty を被せない）。
-# wrappers.SoftFallPenalty の既定値（-10）とは意図的に別の定数。ここが「無効」を
-# 意味する基準値で、SoftFallPenalty 側は「有効にしたときの推奨値」を持つ。
-FALL_PENALTY_DISABLED = -100.0
 
 
 def warn_unknown_keys(config):
@@ -92,24 +87,20 @@ def warn_unknown_keys(config):
             )
 
 
-def make_env(env_id, vel_coef, seed, training, time_penalty=0.0, fall_penalty=FALL_PENALTY_DISABLED):
+def make_env(env_id, vel_coef, seed, training, time_penalty=0.0):
     """1つの環境を作って返す。
 
     ラップの順番:
-      gym.make → Monitor（必ず）
-        → （学習用かつ vel_coef>0 or time_penalty>0 のときだけ）SpeedReward
-        → （学習用かつ fall_penalty が既定値 -100 以外のときだけ）SoftFallPenalty
+      gym.make → Monitor（必ず）→ （学習用かつ vel_coef>0 or time_penalty>0 のときだけ）SpeedReward
 
     training の意味:
-      True  … 学習用の環境。上記の条件を満たすラッパーを被せる。
-      False … 評価用の環境。常に素の環境（どちらのラッパーも被せない）。
+      True  … 学習用の環境。vel_coef>0 or time_penalty>0 なら SpeedReward を被せる。
+      False … 評価用の環境。常に素の環境（SpeedReward を被せない）。
     """
     env = gym.make(env_id)
     env = Monitor(env)  # エピソード報酬・長さを記録する標準ラッパー
     if training and (vel_coef > 0 or time_penalty > 0):
         env = SpeedReward(env, vel_coef=vel_coef, time_penalty=time_penalty)
-    if training and fall_penalty != FALL_PENALTY_DISABLED:
-        env = SoftFallPenalty(env, fall_penalty=fall_penalty)
     env.reset(seed=seed)
     return env
 
@@ -250,7 +241,6 @@ def main():
     env_id = config.get("env_id", "BipedalWalker-v3")
     vel_coef = float(config.get("vel_coef", 0))
     time_penalty = float(config.get("time_penalty", 0))
-    fall_penalty = float(config.get("fall_penalty", FALL_PENALTY_DISABLED))
     seed = int(config.get("seed", 0))
     total_timesteps = int(config.get("total_timesteps", 4000))
 
@@ -267,13 +257,9 @@ def main():
     # ----------------------------------------------------------------------
     # 4. 環境を用意
     # ----------------------------------------------------------------------
-    # 学習用: vel_coef>0 or time_penalty>0 なら SpeedReward、fall_penalty が
-    #         既定値(-100)以外なら SoftFallPenalty も追加で被さる。
+    # 学習用: vel_coef>0 or time_penalty>0 なら SpeedReward あり。
     # 評価用: 常に素の環境。学習用とシードをずらして（+10000）汎化を見る。
-    train_env = make_env(
-        env_id, vel_coef, seed, training=True,
-        time_penalty=time_penalty, fall_penalty=fall_penalty,
-    )
+    train_env = make_env(env_id, vel_coef, seed, training=True, time_penalty=time_penalty)
     eval_env = make_env(env_id, 0.0, seed + 10000, training=False)
 
     # ----------------------------------------------------------------------
