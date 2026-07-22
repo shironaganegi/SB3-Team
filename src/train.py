@@ -29,9 +29,11 @@ import inspect
 import os
 
 import yaml
+import torch as th
 import gymnasium as gym
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import (
+    BaseCallback,
     CallbackList,
     CheckpointCallback,
     EvalCallback,
@@ -40,7 +42,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.utils import set_random_seed
 from sb3_contrib import TQC
 
-from wrappers import SpeedReward
+from wrappers import SpeedReward, SoftFallPenalty
 
 
 # YAML の項目は次の2種類に自動で振り分けられます。
@@ -64,10 +66,15 @@ TQC_PARAM_NAMES = set(inspect.signature(TQC.__init__).parameters) - _EXPLICITLY_
 
 # このスクリプト自身が読む「学習の制御用」キー
 CONTROL_KEYS = {
-    "env_id", "vel_coef", "time_penalty", "seed", "total_timesteps",
+    "env_id", "vel_coef", "time_penalty", "fall_penalty", "seed", "total_timesteps",
     "eval_freq", "n_eval_episodes", "checkpoint_freq",
     "use_wandb", "wandb_project", "wandb_entity",
 }
+
+# fall_penalty の既定値（素の環境と同じ -100 = SoftFallPenalty を被せない）。
+# wrappers.SoftFallPenalty の既定値（-10）とは意図的に別の定数。ここが「無効」を
+# 意味する基準値で、SoftFallPenalty 側は「有効にしたときの推奨値」を持つ。
+FALL_PENALTY_DISABLED = -100.0
 
 
 def warn_unknown_keys(config):
@@ -85,20 +92,24 @@ def warn_unknown_keys(config):
             )
 
 
-def make_env(env_id, vel_coef, seed, training, time_penalty=0.0):
+def make_env(env_id, vel_coef, seed, training, time_penalty=0.0, fall_penalty=FALL_PENALTY_DISABLED):
     """1つの環境を作って返す。
 
     ラップの順番:
-      gym.make → Monitor（必ず）→ （学習用かつ vel_coef>0 or time_penalty>0 のときだけ）SpeedReward
+      gym.make → Monitor（必ず）
+        → （学習用かつ vel_coef>0 or time_penalty>0 のときだけ）SpeedReward
+        → （学習用かつ fall_penalty が既定値 -100 以外のときだけ）SoftFallPenalty
 
     training の意味:
-      True  … 学習用の環境。vel_coef>0 or time_penalty>0 なら SpeedReward を被せる。
-      False … 評価用の環境。常に素の環境（SpeedReward を被せない）。
+      True  … 学習用の環境。上記の条件を満たすラッパーを被せる。
+      False … 評価用の環境。常に素の環境（どちらのラッパーも被せない）。
     """
     env = gym.make(env_id)
     env = Monitor(env)  # エピソード報酬・長さを記録する標準ラッパー
     if training and (vel_coef > 0 or time_penalty > 0):
         env = SpeedReward(env, vel_coef=vel_coef, time_penalty=time_penalty)
+    if training and fall_penalty != FALL_PENALTY_DISABLED:
+        env = SoftFallPenalty(env, fall_penalty=fall_penalty)
     env.reset(seed=seed)
     return env
 
@@ -107,6 +118,80 @@ def load_config(path):
     """YAML 設定ファイルを辞書として読み込む。"""
     with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
+
+
+def enable_expln(model):
+    """gSDE の std 計算を expln 方式に切り替えて、NaN クラッシュを防ぐ。
+
+    【なぜ】gSDE（use_sde: true）は探索ノイズの大きさを log_std という学習パラメータで
+    持ち、標準では std = exp(log_std) で計算する。長い学習で log_std が正の方向に
+    育ちすぎると exp が桁あふれして NaN になり、学習が墜落する（2026-07-15 の
+    Hardcore run mild-lion-18 が 3.69M step でこれで落ちた。docs/BEST_CONFIG.md §8）。
+    expln 方式は log_std<=0 では exp と完全に同じ値を返し、log_std>0 の領域だけ
+    対数的にしか増えないため、正常な学習の挙動を一切変えずに発散だけを防げる。
+
+    【なぜロード後にフラグを立てるだけでよいか】SB3 の
+    StateDependentNoiseDistribution.get_std() は呼び出しのたびに self.use_expln を
+    参照するので、モデル作成/ロード後にこの属性を True にすれば以降の計算に効く。
+    --resume ではチェックポイント保存時のハイパラが復元される（YAML は効かない）ため、
+    ここで一律に有効化する。
+    """
+    dist = getattr(getattr(model.policy, "actor", None), "action_dist", None)
+    if dist is not None and hasattr(dist, "use_expln") and not dist.use_expln:
+        dist.use_expln = True
+        print("[nan-guard] gSDE の use_expln を有効化しました（std の発散による NaN を防ぐため）")
+
+
+class StopOnNonFiniteCallback(BaseCallback):
+    """学習パラメータに NaN/inf を検知したら、墜落する前に学習を「正常終了」させる。
+
+    【なぜ】NaN で例外が出てプロセスごと死ぬと、学習後の処理（最終モデルの保存・
+    best_model.zip の W&B アップロード・動画作成）が一切走らず、その run の成果が
+    まるごと回収不能になる（mild-lion-18 で実際に起きた）。ここで先に検知して
+    学習ループを止めれば、model.learn() が普通に戻ってきて後続の保存処理が全部走る。
+
+    【何を見るか】発散の起点になった gSDE の log_std を番兵として監視する。
+    注意: use_sde でないモデルでは log_std 属性はテンソルではなく nn.Linear 層
+    なので、テンソルのときだけ検査する（それ以外は何もしない）。
+    """
+
+    def __init__(self, check_freq=1000):
+        super().__init__()
+        self.check_freq = check_freq
+
+    def _on_step(self):
+        if self.n_calls % self.check_freq != 0:
+            return True
+        log_std = getattr(getattr(self.model.policy, "actor", None), "log_std", None)
+        if isinstance(log_std, th.Tensor) and not th.isfinite(log_std).all():
+            print(
+                f"[nan-guard] log_std に NaN/inf を検知したため、学習を安全に停止します"
+                f"（step={self.model.num_timesteps:,}）。ここまでのベストモデルは保存されています。"
+            )
+            return False
+        return True
+
+
+class UploadBestToWandbCallback(BaseCallback):
+    """EvalCallback がベストモデルを更新するたびに、その場で W&B へアップロードする。
+
+    【なぜ】学習終了時のアップロード（main() 9.3節）だけだと、クラッシュ・NaN・
+    Kaggle セッション上限のどれかで途中終了した run からは何も回収できない
+    （mild-lion-18 では eval 報酬ピーク 243.5 のモデルを失った）。ベスト更新の
+    たびに上げておけば、run がどう死んでも「その時点のベスト」は必ず W&B に残る。
+
+    【使い方】EvalCallback の callback_on_new_best に渡す（ベストモデルの保存が
+    済んだ直後に呼ばれる）。W&B を使う run でだけ生成すること。
+    """
+
+    def _on_step(self):
+        import wandb
+
+        best_path = os.path.join("models", "best_model.zip")
+        if os.path.exists(best_path):
+            # policy="live" は「ファイルが更新されるたびに同期し続ける」指定
+            wandb.save(best_path, base_path="models", policy="live")
+        return True
 
 
 def main():
@@ -165,6 +250,7 @@ def main():
     env_id = config.get("env_id", "BipedalWalker-v3")
     vel_coef = float(config.get("vel_coef", 0))
     time_penalty = float(config.get("time_penalty", 0))
+    fall_penalty = float(config.get("fall_penalty", FALL_PENALTY_DISABLED))
     seed = int(config.get("seed", 0))
     total_timesteps = int(config.get("total_timesteps", 4000))
 
@@ -181,9 +267,13 @@ def main():
     # ----------------------------------------------------------------------
     # 4. 環境を用意
     # ----------------------------------------------------------------------
-    # 学習用: vel_coef>0 or time_penalty>0 なら SpeedReward あり。
+    # 学習用: vel_coef>0 or time_penalty>0 なら SpeedReward、fall_penalty が
+    #         既定値(-100)以外なら SoftFallPenalty も追加で被さる。
     # 評価用: 常に素の環境。学習用とシードをずらして（+10000）汎化を見る。
-    train_env = make_env(env_id, vel_coef, seed, training=True, time_penalty=time_penalty)
+    train_env = make_env(
+        env_id, vel_coef, seed, training=True,
+        time_penalty=time_penalty, fall_penalty=fall_penalty,
+    )
     eval_env = make_env(env_id, 0.0, seed + 10000, training=False)
 
     # ----------------------------------------------------------------------
@@ -227,6 +317,10 @@ def main():
         )
         reset_num_timesteps = True
 
+    # 新規・再開のどちらでも、gSDE の std 発散による NaN クラッシュを防ぐ
+    # （関数の docstring 参照。use_sde でないモデルには何もしない）
+    enable_expln(model)
+
     # ----------------------------------------------------------------------
     # 7. コールバック（学習中に定期的に走る処理）
     # ----------------------------------------------------------------------
@@ -234,6 +328,8 @@ def main():
 
     # (a) 評価コールバック: 一定ステップごとに素の環境で deterministic 評価し、
     #     成績が良ければ models/best_model.zip を更新する。
+    #     W&B を使うときは、ベスト更新のたびにその場で W&B へも上げる
+    #     （run が途中で死んでもベストだけは回収できるように）。
     eval_callback = EvalCallback(
         eval_env,
         best_model_save_path="models",
@@ -242,8 +338,12 @@ def main():
         n_eval_episodes=int(config.get("n_eval_episodes", 10)),
         deterministic=True,
         render=False,
+        callback_on_new_best=UploadBestToWandbCallback() if run is not None else None,
     )
     callbacks.append(eval_callback)
+
+    # (a') NaN の見張り: log_std が壊れたら墜落する前に学習を正常終了させる
+    callbacks.append(StopOnNonFiniteCallback())
 
     # (b) チェックポイント: 一定ステップごとに checkpoints/ へ保存（再開用）。
     checkpoint_callback = CheckpointCallback(

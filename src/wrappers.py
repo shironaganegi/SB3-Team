@@ -1,8 +1,9 @@
 """学習時だけ報酬を整形するための gymnasium ラッパー集。
 
-このファイルには「報酬の形を変えるラッパー」を置きます。今は前進速度ボーナスを
-足す SpeedReward だけですが、別の報酬整形を試したくなったら、ここに新しい
-gym.Wrapper のクラスを追加し、train.py の make_env() から呼び出す形にします。
+このファイルには「報酬の形を変えるラッパー」を置きます。前進速度ボーナスを足す
+SpeedReward と、転倒ペナルティを緩和する SoftFallPenalty があります。別の報酬
+整形を試したくなったら、ここに新しい gym.Wrapper のクラスを追加し、train.py の
+make_env() から呼び出す形にします。
 
 【重要】ラッパーは「学習を望ましい歩き方へ誘導する」ための道具です。
 最終的な成績（完走率・ゴール到達ステップ数）は必ず素の環境で測るので、
@@ -57,5 +58,48 @@ class SpeedReward(gym.Wrapper):
         if self.time_penalty != 0.0:
             # 1ステップごとの一定減点。早くゴールするほど累積ペナルティが小さい。
             reward = reward - self.time_penalty
+
+        return obs, reward, terminated, truncated, info
+
+
+class SoftFallPenalty(gym.Wrapper):
+    """転倒ペナルティ（報酬 -100）を、学習時だけ小さい値に緩和するラッパー。
+
+    【なぜ】BipedalWalker は転倒すると reward が -100 になる一方、通常の1ステップ
+    報酬は概ね [-1, +1] 程度しかない。Hardcore の障害物（穴・切り株・階段）を
+    越えるには多少リスクのある動きが必要な場面があるが、-100 という一撃が
+    毎ステップの小さい報酬に対して大きすぎるため、方策が「挑戦して転ぶ」より
+    「その場に留まって時間切れを待つ」方をQ値上有利と学びやすい
+    （2026-07-22 時点の20シード評価で、失敗7件中1件は転倒ですらなく穴の手前で
+    2000stepの時間切れになっていた。members/0375/HARDCORE_LOG.md 参照）。
+
+    公開実装（[ugurcanozalp/td3-sac-bipedal-walker-hardcore-v3](
+    https://github.com/ugurcanozalp/td3-sac-bipedal-walker-hardcore-v3)）でも
+    同じ理由（"to make agent brave for exploration"）で転倒報酬を -100 から
+    -10 に緩和しており、Hardcore を SAC/TD3 で解く構成の中核になっていた。
+
+    仕組み: 転倒による終了（BipedalWalker の実装上、転倒時は reward がちょうど
+    -100 になる）を検知し、その回だけ fall_penalty の値に置き換える。判定は
+    evaluate.py の FALL_PENALTY_MARGIN と同じ考え方で「-90 以下なら転倒」という
+    マージン付きの比較にする（通常の1ステップ報酬は [-1, +1] 程度なので、
+    -90 以下は転倒ペナルティ以外では起こらない）。転倒以外の報酬・終了判定には
+    一切手を加えない。
+
+    注意:
+      あくまで学習誘導用の報酬整形であり、最終的な評価（完走率・ゴール到達
+      ステップ数）は素の環境で行う。evaluate.py 側ではこのラッパーを被せないこと。
+    """
+
+    FALL_PENALTY_MARGIN = -90.0
+
+    def __init__(self, env: gym.Env, fall_penalty: float = -10.0):
+        super().__init__(env)
+        self.fall_penalty = float(fall_penalty)
+
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+
+        if terminated and reward <= self.FALL_PENALTY_MARGIN:
+            reward = self.fall_penalty
 
         return obs, reward, terminated, truncated, info

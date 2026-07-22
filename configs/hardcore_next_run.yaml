@@ -24,10 +24,36 @@
 #   ベスト到達点が回収できなかった）。手元の採点再現では resume 元の
 #   pf8e9dqb 自体の Hardcore 完走率が 55%（20シード中11完走）とまだ低いため、
 #   速度チューニングより先に完走率を上げる方針に戻す。
+#
+# 2026-07-15 の追記（同じ設定での再実行を計画）:
+#   上記の設定で回した4周目の1本目（run jp5jwddi / mild-lion-18）は、12時間上限では
+#   なく 3.69M step（4.5時間）時点で NaN クラッシュした。原因は gSDE の
+#   log_std の発散（詳細は docs/BEST_CONFIG.md §8）。eval 報酬はピークで
+#   243.5 まで伸びていた（resume 元 pf8e9dqb の 122 を大きく超える）が、
+#   途中クラッシュだと W&B に何も上がらない作りだったため回収できなかった。
+#   src/train.py に対策3点（use_expln で発散防止・NaN 検知で安全停止・
+#   ベスト更新のたびに W&B へ即アップロード）を入れたうえで、この設定の
+#   まま同じ周をやり直す計画だった。
+#
+# 2026-07-16 の変更（resume先を pf8e9dqb → 75glj5ue に更新）:
+#   上の「同じ周をやり直す」計画とは別に、同じ4周目の設定で並行して走っていた
+#   もう1本（run 75glj5ue / light-hill-20）が NaN クラッシュせず完走していたと
+#   判明。pf8e9dqb から vel_coef=0 で+100万step。best_model.zip が今回初めて
+#   実際に回収でき、20シード採点再現で Hardcore完走 65%（13/20、
+#   goal_steps_mean 877.0）・Classic 100%（5/5）と pf8e9dqb（55%）から明確に
+#   改善したため、やり直しは不要と判断し次周はこちらから続ける。
+#   完走率にまだ伸びしろがあるため、vel_coef=1（Step 4b）に戻すのは
+#   もう1周分の様子を見てから判断する。
+#   あわせて notebooks/kaggle_hardcore_finetune.ipynb を修正し、resume時に
+#   model.zip（最終モデル）ではなく best_model.zip（run中の評価ベスト）を
+#   優先して取得するようにした（これまでは best_model.zip をW&Bに上げる
+#   ようにしただけで、resume時に読みに行く先が model.zip のままだった）。
+#   なお src/train.py の NaN 対策（use_expln・安全停止・ベスト即アップロード）
+#   はこの周から有効なので、次周以降はクラッシュ時もベストが回収できるはず。
 # =====================================================================
 
-# ベースにする run（entity/project/run_id）。model.zip が残っている Finished run を指定
-resume_run_path: sai3desuyo-/bipedal-timetrial/pf8e9dqb   # 2周目 sparkling-dew-15: Hardcore完走 11/20（20シード再測定）
+# ベースにする run（entity/project/run_id）。model.zip か best_model.zip が残っている Finished run を指定
+resume_run_path: sai3desuyo-/bipedal-timetrial/75glj5ue   # 3周目 light-hill-20: Hardcore完走 65%（13/20、best_model.zip使用）
 
 # 学習に使う config
 config_path: configs/hardcore_finetune.yaml        # Step 4bをやり直す前に、vel_coef=0で完走率をまず上げる
