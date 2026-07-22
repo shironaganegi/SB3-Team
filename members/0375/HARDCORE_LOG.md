@@ -47,3 +47,27 @@ PRが必要。今回のSoftFallPenalty計画とは別件として保留)。
 
 **次:** `src/wrappers.py` に `SoftFallPenalty`(転倒ペナルティ-100→-10)を追加し、
 `members/0375/configs/hardcore_softfall.yaml` で `75glj5ue` から追加学習する。
+
+## 2026-07-22: SoftFallPenalty実装・実行準備(Step 2-3)
+
+`SoftFallPenalty` は共有の `src/wrappers.py` / `src/train.py`(`CONTROL_KEYS` に
+`fall_penalty` 追加)に実装し、PR [#24](https://github.com/shironaganegi/SB3-Team/pull/24)
+でmainにマージ済み。`make_env` 単体テストとsmoke学習で、(a) `fall_penalty=-10`
+指定時に転倒時報酬が-10になること、(b) 未指定時は従来と完全に同一の挙動である
+こと、を確認済み。
+
+`members/0375/configs/hardcore_softfall.yaml` を作成(`fall_penalty: -10`・
+`total_timesteps: 800000`・`n_eval_episodes: 15`)。short smokeでも正常動作を確認済み。
+
+**Kaggle実行手順:** `notebooks/kaggle_hardcore_finetune.ipynb` のセル4で以下を上書き
+(共有の `configs/hardcore_next_run.yaml` は変更しない):
+```python
+RESUME_RUN_PATH = "sai3desuyo-/bipedal-timetrial/75glj5ue"
+CONFIG_PATH = "members/0375/configs/hardcore_softfall.yaml"
+```
+Save & Run All。実測8〜10時間の見込み(total_timesteps=80万)。
+
+**終了後にやること:** best_model.zip をW&Bから回収し、20シード(必要なら+10シード)で
+採点再現。現候補(`75glj5ue`、Hardcore 65%)を上回ったら、この表に追記し、
+`models/final/team25_tqc_sb3_env1_random.zip` の差し替えと `resume_run_path` の
+更新(このconfig内のコメント、または新しいconfigファイル)を行う。
