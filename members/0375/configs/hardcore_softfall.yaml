@@ -5,8 +5,14 @@
 # 触らない方針。members/README.md参照）。
 #
 # 使い方（Kaggleノート kaggle_hardcore_finetune.ipynb のセル4で上書き）:
-#   RESUME_RUN_PATH = "sai3desuyo-/bipedal-timetrial/75glj5ue"
+#   RESUME_RUN_PATH = "sai3desuyo-/bipedal-timetrial/0fcv7lmb"
 #   CONFIG_PATH = "members/0375/configs/hardcore_softfall.yaml"
+#
+# 2026-07-23 追記: resume元を 75glj5ue → 0fcv7lmb に更新。
+# 0fcv7lmb は Kaggleノート編集ミスで fall_penalty が未適用のまま
+# 75glj5ue から+100万step追加学習したrun（Hardcore完走率は65%のまま変化なし。
+# 詳細は members/0375/HARDCORE_LOG.md）。完走率は同じだが到達step数が多い分だけ
+# 有利なので、無駄にせずこちらを次のresume元にする。
 # =====================================================================
 
 env_id: BipedalWalkerHardcore-v3

@@ -71,3 +71,32 @@ Save & Run All。実測8〜10時間の見込み(total_timesteps=80万)。
 採点再現。現候補(`75glj5ue`、Hardcore 65%)を上回ったら、この表に追記し、
 `models/final/team25_tqc_sb3_env1_random.zip` の差し替えと `resume_run_path` の
 更新(このconfig内のコメント、または新しいconfigファイル)を行う。
+
+## 2026-07-23: 意図せず素の設定のまま追加学習(fall_penalty未適用)
+
+Kaggleノートのセル4で `NameError: name 'resume_run_path' is not defined` が発生した際、
+修正前に一度 `RESUME_RUN_PATH` / `CONFIG_PATH` を空のまま(＝共有の
+`configs/hardcore_next_run.yaml` の既定値にフォールバック)実行してしまい、
+`hardcore_softfall.yaml`(fall_penalty=-10)ではなく共有既定の
+`configs/hardcore_finetune.yaml`(fall_penalty無し・total_timesteps=1,000,000)で
+run `0fcv7lmb`(gallant-tree-22)が完走した。`75glj5ue` から+100万step
+(300万→400万step相当、W&B上のnum_timesteps基準)。
+
+20シード評価: **完走率65%(13/20)**、goal_steps_mean 973.9、reward_mean 208.1。
+`75glj5ue` と完走率は同値で、fall_penaltyを変えない限りプラトーが動かないことの
+傍証になった。
+
+到達step数は`75glj5ue`より多い分だけ有利なので、この`0fcv7lmb`を次のresume元に
+更新した(`members/0375/configs/hardcore_softfall.yaml` 参照)。次周こそ
+`fall_penalty=-10`を実際に適用して回す。
+
+**Kaggle実行手順(更新):**
+```python
+RESUME_RUN_PATH = "sai3desuyo-/bipedal-timetrial/0fcv7lmb"
+CONFIG_PATH = "members/0375/configs/hardcore_softfall.yaml"
+```
+このノートのセル4は、`defaults = yaml.safe_load(...)` の直後に
+`resume_run_path = RESUME_RUN_PATH or defaults["resume_run_path"]` と
+`config_path = CONFIG_PATH or defaults["config_path"]` の2行が必須
+(この2行を上の代入行と間違えて消してしまったのが今回のNameErrorの原因)。
+セルを上書きする前に、この2行が残っているか必ず確認すること。
