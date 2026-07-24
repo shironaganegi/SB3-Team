@@ -71,3 +71,87 @@ Save & Run All。実測8〜10時間の見込み(total_timesteps=80万)。
 採点再現。現候補(`75glj5ue`、Hardcore 65%)を上回ったら、この表に追記し、
 `models/final/team25_tqc_sb3_env1_random.zip` の差し替えと `resume_run_path` の
 更新(このconfig内のコメント、または新しいconfigファイル)を行う。
+
+## 2026-07-23: 意図せず素の設定のまま追加学習(fall_penalty未適用)
+
+Kaggleノートのセル4で `NameError: name 'resume_run_path' is not defined` が発生した際、
+修正前に一度 `RESUME_RUN_PATH` / `CONFIG_PATH` を空のまま(＝共有の
+`configs/hardcore_next_run.yaml` の既定値にフォールバック)実行してしまい、
+`hardcore_softfall.yaml`(fall_penalty=-10)ではなく共有既定の
+`configs/hardcore_finetune.yaml`(fall_penalty無し・total_timesteps=1,000,000)で
+run `0fcv7lmb`(gallant-tree-22)が完走した。`75glj5ue` から+100万step
+(300万→400万step相当、W&B上のnum_timesteps基準)。
+
+20シード評価: **完走率65%(13/20)**、goal_steps_mean 973.9、reward_mean 208.1。
+`75glj5ue` と完走率は同値で、fall_penaltyを変えない限りプラトーが動かないことの
+傍証になった。
+
+到達step数は`75glj5ue`より多い分だけ有利なので、この`0fcv7lmb`を次のresume元に
+更新した(`members/0375/configs/hardcore_softfall.yaml` 参照)。次周こそ
+`fall_penalty=-10`を実際に適用して回す。
+
+**Kaggle実行手順(更新):**
+```python
+RESUME_RUN_PATH = "sai3desuyo-/bipedal-timetrial/0fcv7lmb"
+CONFIG_PATH = "members/0375/configs/hardcore_softfall.yaml"
+```
+このノートのセル4は、`defaults = yaml.safe_load(...)` の直後に
+`resume_run_path = RESUME_RUN_PATH or defaults["resume_run_path"]` と
+`config_path = CONFIG_PATH or defaults["config_path"]` の2行が必須
+(この2行を上の代入行と間違えて消してしまったのが今回のNameErrorの原因)。
+セルを上書きする前に、この2行が残っているか必ず確認すること。
+
+なお別途、代入行の後ろに全角スペース(U+3000)が紛れて`SyntaxError`になったことも
+あった。コード部分は必ずIMEオフ(半角英数)で打つこと。
+
+## 2026-07-23: SoftFallPenalty初回結果(Step 3-4, 1周目)
+
+`0fcv7lmb` から `hardcore_softfall.yaml`(fall_penalty=-10)で+100万step
+(Kaggleノート側の`TOTAL_TIMESTEPS`未指定により共有既定の1,000,000が使われた。
+config内の800,000指定はノート側のロジックで上書きされるため無効。仕様として認識)。
+run `urb2pqe1`(ancient-armadillo-23)。
+
+20シード評価: **完走率55%(11/20)**、goal_steps_mean 844.5、reward_mean 201.9。
+`0fcv7lmb`(65%)から悪化。ただし失敗の内訳を地形分類したところ、単純悪化ではなく
+入れ替わりだった:
+
+| 変化 | seed | 詳細 |
+|---|---|---|
+| 直った(前回失敗→成功) | 4, 7 | 「障害物到達前の草地」「PIT通過直後」— fall_penalty緩和が狙った失敗モードそのもの |
+| 新たに失敗 | 0, 2, 5, 16 | STUMP際・STAIRS区間・原因不明瞭な草地。狙いと無関係 |
+| 相変わらず失敗 | 1, 10, 17, 18, 19 | seed10は前回「PIT手前で2000step停滞して時間切れ」だったが、今回は草地で通常の転倒に変化(停滞は解消したが完走には至らず) |
+
+**所感:** 狙った失敗モード(seed4, 7)は仮説通り解消し、seed10の「固まる」挙動も
+解消した。一方で新規失敗4件は追加学習に伴う方策のブレ(ノイズ)の可能性が高く、
+20シードでは1件の増減が5%動くため、1周だけでは「fall_penalty緩和がプラトーを
+崩せるか」の判断には材料不足。もう1周同条件で回し、傾向を確認する。
+
+**次:** `urb2pqe1`をresume元に、同じ`hardcore_softfall.yaml`(fall_penalty=-10)で
+2周目を実行し、65%を超えるかを見る。
+
+## 2026-07-23: SoftFallPenalty 2周目 — 傾向確認、fall_penalty=-10は撤回
+
+`urb2pqe1` から同条件(fall_penalty=-10)で+100万step。run `u2gz8q9k`
+(dainty-resonance-24)。
+
+20シード評価: **完走率55%(11/20)**、goal_steps_mean 889.7、reward_mean 195.5。
+1周目と同じ55%だが、失敗シードの中身は大きく入れ替わっている:
+
+- 1周目(urb2pqe1)失敗: 0, 1, 2, 5, 10, 16, 17, 18, 19
+- 2周目(u2gz8q9k)失敗: 0, 1, 4, 6, 7, 9, 14, 17, 19
+- 両方で失敗: 0, 1, 17, 19 のみ。残り5件ずつは周によって違う
+
+**判断:** ベースライン(`0fcv7lmb`, fall_penalty無し)65%に対し、fall_penalty=-10を
+適用した2周が連続して55%。失敗シードが周ごとに大きく入れ替わる(=ノイズが大きい)
+ものの、2周とも65%を明確に下回っており「ノイズで65%前後に収まっている」とは言えない。
+
+**考えられる原因:** 当初の仮説(-100が厳しすぎて挑戦を避け、その場で固まる)は
+1周目でseed10の「固まって時間切れ」が解消したことで裏付けられた。しかし
+-10まで下げすぎた結果、今度は「転倒の代償が小さすぎて、姿勢を立て直す努力を
+すぐ放棄して転ぶ」方向に振れすぎた可能性がある。実際、2周とも新規失敗の多くは
+STUMP/STAIRS通過中ではなく通常の草地(GRASS)上での転倒で、狙った障害物回避の
+臆病さとは無関係な「投げやりな転倒」が増えている。
+
+**次:** fall_penalty=-10は撤回し、緩和の度合いを弱めた値(-30〜-50程度、-100と-10の
+中間)を試す。狙った効果(PIT/STUMP前での臆病さ解消)を保ちつつ、転倒の代償を
+下げすぎない値を探る。resume元は`u2gz8q9k`(直近の到達点)を使う。
