@@ -5,7 +5,7 @@
 # 触らない方針。members/README.md参照）。
 #
 # 使い方（Kaggleノート kaggle_hardcore_finetune.ipynb のセル4で上書き）:
-#   RESUME_RUN_PATH = "sai3desuyo-/bipedal-timetrial/urb2pqe1"
+#   RESUME_RUN_PATH = "sai3desuyo-/bipedal-timetrial/u2gz8q9k"
 #   CONFIG_PATH = "members/0375/configs/hardcore_softfall.yaml"
 #
 # 2026-07-23 追記(1): resume元を 75glj5ue → 0fcv7lmb に更新。
@@ -20,11 +20,17 @@
 # 失敗モード2件が解消・別の4件が新規発生という入れ替わりで、1周だけでは
 # ノイズか悪化傾向か判断できない（詳細は HARDCORE_LOG.md）。同条件でもう1周
 # 回して傾向を見る。
+#
+# 2026-07-23 追記(3): fall_penalty を -10 → -30 に変更、resume元を u2gz8q9k に更新。
+# urb2pqe1 → u2gz8q9k と fall_penalty=-10 で2周連続55%（baseline 0fcv7lmbの
+# 65%を明確に下回る）。狙った失敗モード(PIT/STUMP前の臆病さ)は解消できていた一方、
+# 通常の草地での「投げやりな転倒」が新規に増えていた。-10まで下げすぎたと判断し、
+# -100と-10の中間の-30を試す（詳細は HARDCORE_LOG.md）。
 # =====================================================================
 
 env_id: BipedalWalkerHardcore-v3
 vel_coef: 0
-fall_penalty: -10    # 転倒(-100)をここまで緩和。根拠は members/0375/HARDCORE_LOG.md
+fall_penalty: -30    # -10は下げすぎて「投げやりな転倒」が増加。根拠は members/0375/HARDCORE_LOG.md
 seed: 0
 total_timesteps: 800000   # 前回runが12時間上限で89万/100万止まりだったため、正常終了を優先
 
